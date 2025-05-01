@@ -19,7 +19,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   // Development mode flag
   const isDevelopment = process.env.NODE_ENV === 'development';
 
-  const API_URL = 'https://your-api-endpoint.com/api'; // Replace with your actual API endpoint
+  const API_URL = 'http://localhost:3000/auth'; // Local authentication API endpoint
 
   const validateForm = (): boolean => {
     setError('');
@@ -46,7 +46,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     // Simulate network delay
     setTimeout(() => {
       const mockToken = 'dev-mode-token-' + Math.random().toString(36).substring(2, 15);
-      localStorage.setItem('auth_token', mockToken);
+      sessionStorage.setItem('auth_token', mockToken);
       onLogin(mockToken);
       setLoading(false);
     }, 1000);
@@ -70,7 +70,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     // Simulate network delay
     setTimeout(() => {
       const authToken = 'auth-token-' + Math.random().toString(36).substring(2, 15);
-      localStorage.setItem('auth_token', authToken);
+      sessionStorage.setItem('auth_token', authToken);
       onLogin(authToken);
       setLoading(false);
     }, 1000);
@@ -81,7 +81,9 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     
     if (!validateForm()) return;
     
-    // Use simulated methods in development mode
+    // Comment out this part to use real API even in development mode
+    // If you want to use simulated responses, uncomment this block
+    /*
     if (isDevelopment) {
       if (currentScreen === 'login') {
         simulateLogin();
@@ -92,6 +94,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       }
       return;
     }
+    */
     
     setLoading(true);
     
@@ -114,7 +117,9 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        credentials: 'include', // Include cookies for authentication
         body: JSON.stringify(body),
       });
       
@@ -128,7 +133,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         setSignupToken(data.verificationToken);
         setCurrentScreen('verify');
       } else if (data.token) {
-        localStorage.setItem('auth_token', data.token);
+        sessionStorage.setItem('auth_token', data.token);
         onLogin(data.token);
       } else {
         setError('No authentication token received');

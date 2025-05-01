@@ -156,3 +156,64 @@ label {
   text-align: center;
   width: 100%;
 }
+
+.github-user-profile {
+  display: flex;
+  align-items: center;
+  background-color: var(--color-card);
+  border-radius: 8px;
+  padding: 15px;
+  margin-top: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s ease;
+  width: 100%;
+  border: 1px solid var(--color-border);
+}
+
+.github-user-profile:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.user-avatar {
+  margin-right: 20px;
+}
+
+.user-avatar img {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid var(--color-primary);
+}
+
+.user-info {
+  flex: 1;
+  text-align: left;
+}
+
+.user-info h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--color-text-primary);
+}
+
+.user-info p {
+  margin: 5px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.loading-indicator {
+  margin-top: 15px;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  width: 100%;
+  text-align: center;
+}
+
+.error-message {
+  margin-top: 15px;
+  color: var(--color-error);
+  font-size: 0.9rem;
+  width: 100%;
+  text-align: center;
+}

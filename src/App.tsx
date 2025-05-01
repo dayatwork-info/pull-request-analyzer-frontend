@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import Auth from './components/Auth/Auth';
-import { isAuthenticated, getToken, removeToken, bypassLogin } from './services/authService';
+import { isAuthenticated, getToken, clearSession, bypassLogin, fetchGitHubUser } from './services/authService';
 
 function App() {
   const [authenticated, setAuthenticated] = useState<boolean>(false);
   const [githubToken, setGithubToken] = useState<string>('');
   const [isTokenVisible, setIsTokenVisible] = useState<boolean>(false);
+  const [githubUser, setGithubUser] = useState<{login: string; avatar_url: string; name?: string} | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState<boolean>(false);
+  const [userError, setUserError] = useState<string | null>(null);
   
   // Development mode flag
   const isDevelopment = process.env.NODE_ENV === 'development';
@@ -21,21 +24,49 @@ function App() {
   };
 
   const handleLogout = () => {
-    removeToken();
+    clearSession(); // Uses our new function to clear all session data
     setAuthenticated(false);
     setGithubToken('');
+    setGithubUser(null);
+    setUserError(null);
   };
 
   const handleTokenChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setGithubToken(event.target.value);
+    const newToken = event.target.value;
+    setGithubToken(newToken);
+    
+    // Clear user data when token is emptied
+    if (!newToken) {
+      setGithubUser(null);
+      setUserError(null);
+      return;
+    }
+    
+    // Fetch GitHub user data when token is pasted
+    setIsLoadingUser(true);
+    setUserError(null);
+    
+    fetchGitHubUser(newToken)
+      .then(userData => {
+        setGithubUser(userData);
+        setUserError(null);
+      })
+      .catch(error => {
+        setGithubUser(null);
+        setUserError('Failed to fetch GitHub user data');
+        console.error('Error fetching GitHub user:', error);
+      })
+      .finally(() => {
+        setIsLoadingUser(false);
+      });
   };
 
   const toggleTokenVisibility = () => {
     setIsTokenVisible(!isTokenVisible);
   };
   
-  const handleDirectDevLogin = () => {
-    bypassLogin();
+  const handleDirectDevLogin = async () => {
+    await bypassLogin();
     setAuthenticated(true);
   };
 
@@ -89,6 +120,30 @@ function App() {
               <p className="token-info">
                 Your token is used to understand the PRs created by you.
               </p>
+              
+              {isLoadingUser && (
+                <div className="loading-indicator">
+                  Loading GitHub user data...
+                </div>
+              )}
+              
+              {userError && (
+                <div className="error-message">
+                  {userError}
+                </div>
+              )}
+              
+              {githubUser && (
+                <div className="github-user-profile">
+                  <div className="user-avatar">
+                    <img src={githubUser.avatar_url} alt={`${githubUser.login}'s avatar`} />
+                  </div>
+                  <div className="user-info">
+                    <h3>{githubUser.name || githubUser.login}</h3>
+                    <p>@{githubUser.login}</p>
+                  </div>
+                </div>
+              )}
               
               {isDevelopment && (
                 <div className="dev-mode-indicator">

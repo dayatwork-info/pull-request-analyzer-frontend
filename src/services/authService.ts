@@ -1,4 +1,5 @@
-const API_URL = 'https://your-api-endpoint.com/api'; // Replace with your actual API endpoint
+const API_URL = 'http://localhost:3000/auth'; // Local authentication API endpoint
+const GITHUB_API_URL = 'http://localhost:3000/github'; // Local GitHub API endpoint
 
 // Development mode flag
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -6,6 +7,12 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 interface User {
   id: string;
   email: string;
+  name?: string;
+}
+
+interface GitHubUser {
+  login: string;
+  avatar_url: string;
   name?: string;
 }
 
@@ -32,17 +39,22 @@ interface AuthError {
 }
 
 export const login = async (email: string, password: string): Promise<LoginResponse> => {
-  // For development mode, bypass real API call if enabled
+  // Comment out to use real API even in development mode
+  // Uncomment to use simulated login
+  /*
   if (isDevelopment) {
     return devModeLogin();
   }
+  */
 
   try {
     const response = await fetch(`${API_URL}/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
+      credentials: 'include', // Include cookies for authentication
       body: JSON.stringify({ email, password }),
     });
 
@@ -68,17 +80,22 @@ export const login = async (email: string, password: string): Promise<LoginRespo
 };
 
 export const signup = async (email: string, password: string): Promise<SignupResponse> => {
-  // For development mode, bypass real API call if enabled
+  // Comment out to use real API even in development mode
+  // Uncomment to use simulated signup
+  /*
   if (isDevelopment) {
     return devModeSignup();
   }
+  */
 
   try {
     const response = await fetch(`${API_URL}/signup`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
+      credentials: 'include', // Include cookies for authentication
       body: JSON.stringify({ email, password }),
     });
 
@@ -100,17 +117,22 @@ export const signup = async (email: string, password: string): Promise<SignupRes
 };
 
 export const verifyAccount = async (token: string): Promise<VerifyResponse> => {
-  // For development mode, bypass real API call if enabled
+  // Comment out to use real API even in development mode
+  // Uncomment to use simulated verification
+  /*
   if (isDevelopment) {
     return devModeVerify();
   }
+  */
 
   try {
     const response = await fetch(`${API_URL}/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
+      credentials: 'include', // Include cookies for authentication
       body: JSON.stringify({ token }),
     });
 
@@ -140,7 +162,7 @@ export const devModeLogin = (): Promise<LoginResponse> => {
   return new Promise((resolve) => {
     setTimeout(() => {
       const mockToken = 'dev-mode-token-' + Math.random().toString(36).substring(2, 15);
-      setToken(mockToken);
+      setToken(mockToken); // This now uses sessionStorage
       
       resolve({
         token: mockToken,
@@ -171,7 +193,7 @@ export const devModeVerify = (): Promise<VerifyResponse> => {
   return new Promise((resolve) => {
     setTimeout(() => {
       const mockToken = 'dev-verified-token-' + Math.random().toString(36).substring(2, 15);
-      setToken(mockToken);
+      setToken(mockToken); // This now uses sessionStorage
       
       resolve({
         token: mockToken,
@@ -186,26 +208,88 @@ export const devModeVerify = (): Promise<VerifyResponse> => {
   });
 };
 
+/**
+ * Token management functions
+ * Using sessionStorage which clears when the browser tab is closed,
+ * providing better security than localStorage.
+ */
 export const getToken = (): string | null => {
-  return localStorage.getItem('auth_token');
+  return sessionStorage.getItem('auth_token');
 };
 
 export const setToken = (token: string): void => {
-  localStorage.setItem('auth_token', token);
+  sessionStorage.setItem('auth_token', token);
 };
 
 export const removeToken = (): void => {
-  localStorage.removeItem('auth_token');
+  sessionStorage.removeItem('auth_token');
 };
 
 export const isAuthenticated = (): boolean => {
   return !!getToken();
 };
 
+/**
+ * Clears all session data - useful for logout or when auth errors occur
+ */
+export const clearSession = (): void => {
+  // Clear all auth-related items from sessionStorage
+  removeToken();
+  
+  // Add any additional session items to clear here
+};
+
+/**
+ * GitHub API related functions
+ */
+export const fetchGitHubUser = async (token: string): Promise<GitHubUser> => {
+  try {
+    const response = await fetch(`${GITHUB_API_URL}/user`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch GitHub user data');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching GitHub user:', error);
+    throw error;
+  }
+};
+
 // Helper for direct developer login bypass
-export const bypassLogin = (): void => {
+export const bypassLogin = async (): Promise<void> => {
   if (isDevelopment) {
+    try {
+      // Try to use the development endpoint for instant login
+      const response = await fetch(`${API_URL}/dev-login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.token) {
+          setToken(data.token);
+          return;
+        }
+      }
+    } catch (error) {
+      console.log('Dev login endpoint not available, using mock token instead');
+    }
+    
+    // Fallback to mock token
     const mockToken = 'dev-mode-token-' + Math.random().toString(36).substring(2, 15);
-    setToken(mockToken);
+    setToken(mockToken); // This now uses sessionStorage
   }
 };
