@@ -16,6 +16,23 @@ interface GitHubUser {
   name?: string;
 }
 
+interface GitHubRepository {
+  id: number;
+  name: string;
+  full_name: string;
+  description: string;
+  html_url: string;
+  fork: boolean;
+  stargazers_count: number;
+  watchers_count: number;
+  language: string;
+  visibility: string;
+  default_branch: string;
+  created_at: string;
+  updated_at: string;
+  pushed_at: string;
+}
+
 interface LoginResponse {
   token: string;
   user?: User;
@@ -259,6 +276,27 @@ export const fetchGitHubUser = async (token: string): Promise<GitHubUser> => {
     return await response.json();
   } catch (error) {
     console.error('Error fetching GitHub user:', error);
+    throw error;
+  }
+};
+
+export const fetchGitHubRepositories = async (token: string, page: number = 1): Promise<GitHubRepository[]> => {
+  try {
+    const response = await fetch(`${GITHUB_API_URL}/repositories?page=${page}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch GitHub repositories');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching GitHub repositories:', error);
     throw error;
   }
 };
