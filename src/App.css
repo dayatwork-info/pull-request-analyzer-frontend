@@ -2,37 +2,157 @@
   text-align: center;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
 .App-header {
-  background-color: #282c34;
+  background-color: var(--color-background);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  color: var(--color-text-primary);
 }
 
-.App-link {
-  color: #61dafb;
+h1 {
+  margin-bottom: 2rem;
+  font-size: 2.5rem;
+  color: var(--color-text-primary);
+  font-weight: 700;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.main-content {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.user-panel {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.logout-button {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.logout-button:hover {
+  background-color: rgba(211, 47, 47, 0.1);
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.token-container {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  background-color: var(--color-card);
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: var(--shadow-medium);
+  border: 1px solid var(--color-border);
+}
+
+label {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--color-text-primary);
+  align-self: flex-start;
+}
+
+.input-group {
+  display: flex;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.token-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border: 1px solid var(--color-border);
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+  background-color: var(--color-card);
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.token-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px rgba(103, 80, 164, 0.3);
+}
+
+.token-input::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.visibility-toggle {
+  padding: 0.75rem 1rem;
+  background-color: var(--color-card);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.visibility-toggle:hover {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.token-info {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+  text-align: left;
+}
+
+/* Development mode styling */
+.quick-dev-login {
+  margin-bottom: 1rem;
+}
+
+.dev-login-button {
+  background-color: var(--color-card);
+  color: var(--color-dev);
+  border: 1px dashed var(--color-dev);
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dev-login-button:hover {
+  background-color: rgba(255, 152, 0, 0.1);
+}
+
+.dev-mode-indicator {
+  margin-top: 1rem;
+  padding: 0.5rem;
+  background-color: rgba(255, 152, 0, 0.1);
+  border: 1px dashed var(--color-dev);
+  border-radius: 4px;
+  color: var(--color-dev);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  width: 100%;
 }

@@ -1,0 +1,56 @@
+:root {
+  /* Color palette with primary and secondary colors */
+  --color-primary: rgb(103, 80, 164);
+  --color-primary-light: rgb(173, 159, 211);
+  --color-primary-dark: rgb(79, 55, 139);
+  
+  --color-secondary: rgb(244, 239, 244);
+  --color-secondary-light: rgb(250, 248, 250);
+  --color-secondary-dark: rgb(225, 219, 225);
+  
+  --color-background: rgb(244, 239, 244);
+  --color-card: #ffffff;
+  --color-text-primary: #212121;
+  --color-text-secondary: #757575;
+  --color-border: #e0e0e0;
+  
+  /* Use primary color as accent */
+  --color-accent: rgb(103, 80, 164);
+  --color-accent-light: rgb(173, 159, 211);
+  
+  --color-error: #d32f2f;
+  --color-error-light: #ffcdd2;
+  --color-success: #388e3c;
+  --color-dev: #ff9800;
+  --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-medium: 0 3px 6px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.12);
+  
+  /* Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+  
+  /* Spacing */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  
+  /* Transition */
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+}
