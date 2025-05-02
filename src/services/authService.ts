@@ -84,10 +84,6 @@ interface AuthError {
 }
 
 export const login = async (email: string, password: string): Promise<LoginResponse> => {
-  // For development mode, optionally use simulated login
-  if (isDevelopment && false) { // Set to true to use dev mode login
-    return devModeLogin();
-  }
 
   try {
     const response = await fetch(`${API_URL}/login`, {
@@ -122,10 +118,6 @@ export const login = async (email: string, password: string): Promise<LoginRespo
 };
 
 export const signup = async (email: string, password: string): Promise<SignupResponse> => {
-  // For development mode, optionally use simulated signup
-  if (isDevelopment && false) { // Set to true to use dev mode signup
-    return devModeSignup();
-  }
 
   try {
     const response = await fetch(`${API_URL}/signup`, {
@@ -156,10 +148,6 @@ export const signup = async (email: string, password: string): Promise<SignupRes
 };
 
 export const verifyAccount = async (token: string): Promise<VerifyResponse> => {
-  // For development mode, optionally use simulated verification
-  if (isDevelopment && false) { // Set to true to use dev mode verification
-    return devModeVerify();
-  }
 
   try {
     const response = await fetch(`${API_URL}/verify`, {
@@ -461,6 +449,13 @@ export const fetchGitHubRepoPulls = async (
   }
 };
 
+export interface Contributor {
+  id: number;
+  login: string;
+  avatar_url: string;
+  contributions: number;
+}
+
 export interface PullRequestDetail {
   id: number;
   number: number;
@@ -496,6 +491,7 @@ export interface PullRequestDetail {
     }[];
   };
   prSummary?: string;
+  contributors?: Contributor[];
 }
 
 export const fetchPullRequestDetail = async (
@@ -520,6 +516,34 @@ export const fetchPullRequestDetail = async (
     return await response.json();
   } catch (error) {
     console.error(`Error fetching pull request details for ${owner}/${repo}#${pullNumber}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch contributors for a specific repository
+ */
+export const fetchRepoContributors = async (
+  githubToken: string,
+  owner: string,
+  repo: string
+): Promise<{contributors: Contributor[]}> => {
+  try {
+    const response = await fetchWithTokenRefresh(`${GITHUB_API_URL}/repos/${owner}/${repo}/contributors`, {
+      method: 'GET',
+      headers: {
+        'X-GitHub-Token': githubToken,
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch contributors for ${owner}/${repo}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Error fetching contributors for ${owner}/${repo}:`, error);
     throw error;
   }
 };

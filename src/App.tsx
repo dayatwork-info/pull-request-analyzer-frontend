@@ -1,10 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import Auth from './components/Auth/Auth';
-import { isAuthenticated, clearSession, fetchGitHubUser, fetchGitHubRepositories, fetchGitHubRepoPulls, fetchPullRequestDetail, PullRequestDetail as PullRequestDetailType } from './services/authService';
+import { 
+  isAuthenticated, 
+  clearSession, 
+  fetchGitHubUser, 
+  fetchGitHubRepositories, 
+  fetchGitHubRepoPulls, 
+  fetchPullRequestDetail, 
+  fetchRepoContributors,
+  PullRequestDetail as PullRequestDetailType,
+  Contributor 
+} from './services/authService';
 import PullRequestsList, { PullRequest } from './components/PullRequests/PullRequestsList';
 import PullRequestDetail from './components/PullRequests/PullRequestDetail';
 import Navbar from './components/Navigation/Navbar';
+import RepositoryContributors from './components/RepositoryContributors/RepositoryContributors';
 
 // Helper function to determine language color
 const getLanguageColor = (language: string): string => {
@@ -39,9 +50,11 @@ function App() {
   const [reposError, setReposError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [hasMoreRepos, setHasMoreRepos] = useState<boolean>(true);
+  const [repoContributors, setRepoContributors] = useState<Contributor[] | null>(null);
+  const [isLoadingRepoContributors, setIsLoadingRepoContributors] = useState<boolean>(false);
   
   // Navigation and view state
-  const [currentView, setCurrentView] = useState<'repos' | 'pulls' | 'pullDetail'>('repos');
+  const [currentView, setCurrentView] = useState<'repos' | 'pulls' | 'pullDetail' | 'repoContributors'>('repos');
   
   // Pull requests state
   const [selectedRepo, setSelectedRepo] = useState<{owner: string; name: string} | null>(null);
@@ -51,6 +64,10 @@ function App() {
   const [pullsError, setPullsError] = useState<string | null>(null);
   const [currentPullsPage, setCurrentPullsPage] = useState<number>(1);
   const [hasMorePulls, setHasMorePulls] = useState<boolean>(true);
+  const [filteredPullRequests, setFilteredPullRequests] = useState<PullRequest[]>([]);
+  const [contributors, setContributors] = useState<Contributor[]>([]);
+  const [selectedContributor, setSelectedContributor] = useState<string | null>(null);
+  const [isLoadingContributors, setIsLoadingContributors] = useState<boolean>(false);
   
   // Pull request detail state
   const [selectedPull, setSelectedPull] = useState<number | null>(null);
@@ -112,6 +129,8 @@ function App() {
     setSelectedPull(null);
     setPullRequestDetail(null);
     setPullDetailError(null);
+    setRepoContributors(null);
+    setContributors([]);
     setCurrentView('repos');
   };
 
@@ -196,30 +215,105 @@ function App() {
       });
   };
   
+  // Function to fetch repository contributors
+  const fetchRepositoryContributors = (owner: string, repoName: string) => {
+    setIsLoadingRepoContributors(true);
+    setRepoContributors(null);
+    
+    fetchRepoContributors(githubToken, owner, repoName)
+      .then(contributorsData => {
+        if (contributorsData && 'contributors' in contributorsData) {
+          setRepoContributors(contributorsData.contributors);
+        } else {
+          setRepoContributors([]);
+          console.warn('Contributors data is missing or invalid:', contributorsData);
+        }
+      })
+      .catch(error => {
+        console.error(`Error fetching contributors for ${owner}/${repoName}:`, error);
+        setRepoContributors([]);
+      })
+      .finally(() => {
+        setIsLoadingRepoContributors(false);
+      });
+  };
+  
   // Function to handle repository click
   const handleRepoClick = (owner: string, repoName: string) => {
     setSelectedRepo({ owner, name: repoName });
     setIsLoadingPulls(true);
     setPullsError(null);
     setPullRequests([]);
+    setFilteredPullRequests([]);
+    setSelectedContributor(null);
+    setContributors([]);
     setCurrentView('pulls');
     setCurrentPullsPage(1);
     setHasMorePulls(true);
+    setIsLoadingContributors(true);
     
-    fetchGitHubRepoPulls(githubToken, owner, repoName, 1)
+    // Fetch pull requests
+    const pullRequestsPromise = fetchGitHubRepoPulls(githubToken, owner, repoName, 1)
       .then(pullsData => {
         setPullRequests(pullsData);
+        setFilteredPullRequests(pullsData);
         setPullsError(null);
         // If we got fewer pull requests than expected per page, there are no more to load
         setHasMorePulls(pullsData.length === 10);
+        return pullsData;
       })
       .catch(error => {
         setPullRequests([]);
+        setFilteredPullRequests([]);
         setPullsError(`Failed to fetch pull requests for ${owner}/${repoName}`);
         console.error(`Error fetching pull requests:`, error);
+        return [];
       })
       .finally(() => {
         setIsLoadingPulls(false);
+      });
+    
+    // Fetch contributors
+    const contributorsPromise = fetchRepoContributors(githubToken, owner, repoName)
+      .then(contributorsData => {
+        if (contributorsData && 'contributors' in contributorsData) {
+          setContributors(contributorsData.contributors);
+        } else {
+          setContributors([]);
+        }
+        return contributorsData;
+      })
+      .catch(error => {
+        console.error(`Error fetching contributors for ${owner}/${repoName}:`, error);
+        setContributors([]);
+        return { contributors: [] };
+      })
+      .finally(() => {
+        setIsLoadingContributors(false);
+      });
+    
+    // Wait for both promises to resolve
+    Promise.all([pullRequestsPromise, contributorsPromise])
+      .then(([pullsData, contributorsData]) => {
+        // If the current user is a contributor, select them by default
+        if (githubUser && contributorsData && 'contributors' in contributorsData) {
+          const contributorsList = contributorsData.contributors;
+          const currentUserContributor = contributorsList.find(
+            contributor => contributor.login === githubUser.login
+          );
+          
+          if (currentUserContributor) {
+            // Filter PRs to show only the current user's
+            const userPRs = pullsData.filter(pr => pr.user.login === githubUser.login);
+            if (userPRs.length > 0) {
+              setSelectedContributor(githubUser.login);
+              setFilteredPullRequests(userPRs);
+            }
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching data:', error);
       });
   };
   
@@ -234,7 +328,21 @@ function App() {
         if (newPulls.length === 0) {
           setHasMorePulls(false);
         } else {
-          setPullRequests(prevPulls => [...prevPulls, ...newPulls]);
+          // Update the full list of pull requests
+          const updatedPullRequests = [...pullRequests, ...newPulls];
+          setPullRequests(updatedPullRequests);
+          
+          // If a contributor filter is active, apply it to the new pulls
+          if (selectedContributor) {
+            const newFilteredPulls = newPulls.filter(
+              pr => pr.user.login === selectedContributor
+            );
+            setFilteredPullRequests(prevFilteredPulls => [...prevFilteredPulls, ...newFilteredPulls]);
+          } else {
+            // No filter active, so filtered list is the same as full list
+            setFilteredPullRequests(updatedPullRequests);
+          }
+          
           setCurrentPullsPage(page);
           setHasMorePulls(newPulls.length === 10);
         }
@@ -251,6 +359,13 @@ function App() {
   // Function to go back to repositories view
   const handleBackToRepos = () => {
     setCurrentView('repos');
+    // Clear repository-specific data
+    setRepoContributors(null);
+    setContributors([]);
+    setSelectedContributor(null);
+    setPullRequests([]);
+    setFilteredPullRequests([]);
+    setSelectedRepo(null);
   };
   
   // Function to go back to pull requests view
@@ -259,6 +374,35 @@ function App() {
     setSelectedPull(null);
     setPullRequestDetail(null);
     setPullDetailError(null);
+  };
+  
+  // Function to switch to contributors view
+  const handleShowContributors = () => {
+    if (!selectedRepo) return;
+    setCurrentView('repoContributors');
+    // Use existing data if already loaded
+    if (!repoContributors || repoContributors.length === 0) {
+      fetchRepositoryContributors(selectedRepo.owner, selectedRepo.name);
+    }
+  };
+  
+  // Function to switch to pull requests view
+  const handleShowPulls = () => {
+    setCurrentView('pulls');
+  };
+  
+  // Function to handle contributor filter selection
+  const handleContributorFilter = (login: string | null) => {
+    setSelectedContributor(login);
+    
+    if (login === null) {
+      // Clear filter
+      setFilteredPullRequests(pullRequests);
+    } else {
+      // Apply filter
+      const filtered = pullRequests.filter(pr => pr.user.login === login);
+      setFilteredPullRequests(filtered);
+    }
   };
   
   // Function to handle pull request click
@@ -296,6 +440,8 @@ function App() {
       return 'GitHub Repositories';
     } else if (currentView === 'pulls' && selectedRepo) {
       return `Pull Requests - ${selectedRepo.owner}/${selectedRepo.name}`;
+    } else if (currentView === 'repoContributors' && selectedRepo) {
+      return `Contributors - ${selectedRepo.owner}/${selectedRepo.name}`;
     } else if (currentView === 'pullDetail' && selectedRepo && selectedPull) {
       return `PR #${selectedPull} - ${selectedRepo.owner}/${selectedRepo.name}`;
     }
@@ -315,19 +461,52 @@ function App() {
       );
     }
     
-    if (currentView === 'pulls' && selectedRepo) {
+    if ((currentView === 'pulls' || currentView === 'repoContributors') && selectedRepo) {
       return (
-        <PullRequestsList
-          pullRequests={pullRequests}
-          isLoading={isLoadingPulls}
-          error={pullsError}
-          onBack={() => {}} // We're using the Navbar back button now
-          repoName={selectedRepo.name}
-          onPullRequestClick={handlePullRequestClick}
-          onLoadMore={loadMorePullRequests}
-          hasMorePulls={hasMorePulls}
-          isLoadingMore={isLoadingMorePulls}
-        />
+        <div>
+          {/* Tab Navigation */}
+          <div className="repo-tabs">
+            <button 
+              className={`repo-tab ${currentView === 'pulls' ? 'active' : ''}`}
+              onClick={handleShowPulls}
+            >
+              Pull Requests
+            </button>
+            <button 
+              className={`repo-tab ${currentView === 'repoContributors' ? 'active' : ''}`}
+              onClick={handleShowContributors}
+            >
+              Contributors
+            </button>
+          </div>
+          
+          {/* Tab Content */}
+          {currentView === 'pulls' ? (
+            <PullRequestsList
+              pullRequests={filteredPullRequests}
+              allPullRequests={pullRequests}
+              isLoading={isLoadingPulls}
+              error={pullsError}
+              onBack={() => {}} // We're using the Navbar back button now
+              repoName={selectedRepo.name}
+              onPullRequestClick={handlePullRequestClick}
+              onLoadMore={loadMorePullRequests}
+              hasMorePulls={hasMorePulls}
+              isLoadingMore={isLoadingMorePulls}
+              contributors={contributors}
+              isLoadingContributors={isLoadingContributors}
+              selectedContributor={selectedContributor}
+              onContributorFilter={handleContributorFilter}
+            />
+          ) : (
+            <RepositoryContributors
+              contributors={repoContributors}
+              isLoading={isLoadingRepoContributors}
+              repoName={selectedRepo.name}
+              owner={selectedRepo.owner}
+            />
+          )}
+        </div>
       );
     }
     
