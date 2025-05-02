@@ -253,12 +253,32 @@ label {
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-small);
+  cursor: pointer;
 }
 
 .repository-card:hover {
   box-shadow: var(--shadow-medium);
   transform: translateY(-2px);
   border-color: var(--color-primary-light);
+}
+
+.view-pulls-button {
+  margin-top: 12px;
+  padding: 6px 12px;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: background-color 0.2s ease;
+}
+
+.view-pulls-button:hover {
+  background-color: var(--color-primary);
+  color: white;
 }
 
 .repository-header {
