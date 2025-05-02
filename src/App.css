@@ -1,15 +1,38 @@
 .App {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--color-background);
 }
 
-.App-header {
-  background-color: var(--color-background);
-  min-height: 100vh;
+.App-main {
+  flex: 1;
+  padding: 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  color: var(--color-text-primary);
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.auth-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  min-height: 80vh;
+  width: 100%;
+}
+
+.app-title {
+  margin-bottom: 2rem;
+  font-size: 2.5rem;
   color: var(--color-text-primary);
+  font-weight: 700;
 }
 
 h1 {
@@ -21,39 +44,16 @@ h1 {
 
 .main-content {
   width: 100%;
-  max-width: 500px;
+  max-width: 1000px;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.user-panel {
-  display: flex;
-  justify-content: flex-end;
-  width: 100%;
-  margin-bottom: 1rem;
-}
-
-.logout-button {
-  background-color: transparent;
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.logout-button:hover {
-  background-color: rgba(211, 47, 47, 0.1);
-  border-color: var(--color-error);
-  color: var(--color-error);
-}
 
 .token-container {
   width: 100%;
-  max-width: 500px;
+  max-width: 1000px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -222,9 +222,9 @@ label {
 .repositories-container {
   width: 100%;
   margin-top: 30px;
-  max-height: 500px;
+  max-height: 600px;
   overflow-y: auto;
-  padding-right: 10px;
+  padding-right: 15px;
 }
 
 .repositories-title {
@@ -239,8 +239,8 @@ label {
 
 .repositories-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100%, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
   width: 100%;
 }
 
@@ -265,20 +265,20 @@ label {
 .view-pulls-button {
   margin-top: 12px;
   padding: 6px 12px;
-  background-color: var(--color-primary-light);
-  color: var(--color-primary);
-  border: none;
+  background-color: var(--color-secondary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-secondary-dark);
   border-radius: 4px;
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   align-self: flex-start;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .view-pulls-button:hover {
-  background-color: var(--color-primary);
-  color: white;
+  background-color: var(--color-secondary-dark);
+  color: var(--color-text-primary);
 }
 
 .repository-header {
@@ -297,12 +297,19 @@ label {
 
 .repository-visibility {
   font-size: 0.7rem;
-  background-color: var(--color-primary-light);
-  color: var(--color-primary);
+  background-color: var(--color-secondary);
+  color: var(--color-text-primary);
   padding: 2px 8px;
   border-radius: 12px;
   font-weight: 500;
   text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lock-icon {
+  margin-right: 2px;
 }
 
 .repository-description {
@@ -349,9 +356,9 @@ label {
   font-style: italic;
 }
 
-@media (min-width: 768px) {
+@media (max-width: 768px) {
   .repositories-list {
-    grid-template-columns: repeat(auto-fill, minmax(48%, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 

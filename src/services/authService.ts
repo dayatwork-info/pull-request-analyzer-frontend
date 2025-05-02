@@ -437,10 +437,12 @@ export const fetchGitHubRepositories = async (githubToken: string, page: number 
 export const fetchGitHubRepoPulls = async (
   githubToken: string, 
   owner: string, 
-  repo: string
+  repo: string,
+  page: number = 1,
+  perPage: number = 10
 ): Promise<GitHubPullRequest[]> => {
   try {
-    const response = await fetchWithTokenRefresh(`${GITHUB_API_URL}/repos/${owner}/${repo}/pulls`, {
+    const response = await fetchWithTokenRefresh(`${GITHUB_API_URL}/repos/${owner}/${repo}/pulls?page=${page}&per_page=${perPage}`, {
       method: 'GET',
       headers: {
         'X-GitHub-Token': githubToken,
