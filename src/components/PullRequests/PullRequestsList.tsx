@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Contributor } from '../../services/authService';
 import './PullRequestsList.css';
 
 export interface PullRequest {
@@ -26,6 +27,7 @@ export interface PullRequest {
 
 interface PullRequestsListProps {
   pullRequests: PullRequest[];
+  allPullRequests?: PullRequest[];
   isLoading: boolean;
   error: string | null;
   onBack: () => void;
@@ -34,10 +36,15 @@ interface PullRequestsListProps {
   onLoadMore?: (page: number) => void;
   hasMorePulls?: boolean;
   isLoadingMore?: boolean;
+  contributors?: Contributor[];
+  isLoadingContributors?: boolean;
+  selectedContributor?: string | null;
+  onContributorFilter?: (login: string | null) => void;
 }
 
 const PullRequestsList: React.FC<PullRequestsListProps> = ({ 
   pullRequests, 
+  allPullRequests = [],
   isLoading, 
   error, 
   onBack,
@@ -45,7 +52,11 @@ const PullRequestsList: React.FC<PullRequestsListProps> = ({
   onPullRequestClick,
   onLoadMore = () => {},
   hasMorePulls = false,
-  isLoadingMore = false
+  isLoadingMore = false,
+  contributors = [],
+  isLoadingContributors = false,
+  selectedContributor = null,
+  onContributorFilter = () => {}
 }) => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const listContainerRef = useRef<HTMLDivElement>(null);
@@ -101,6 +112,46 @@ const PullRequestsList: React.FC<PullRequestsListProps> = ({
     <div className="pull-requests-container">
       <div className="pr-header">
         <h2>Pull Requests for {repoName}</h2>
+        
+        {/* Contributors Filter Dropdown */}
+        {contributors.length > 0 && (
+          <div className="contributor-filter">
+            <h3>Filter by PR creator</h3>
+            
+            <div className="contributor-dropdown-container">
+              <select 
+                className="contributor-dropdown"
+                value={selectedContributor || ''}
+                onChange={(e) => onContributorFilter(e.target.value === '' ? null : e.target.value)}
+              >
+                <option value="">All Contributors</option>
+                {contributors.map(contributor => {
+                  return (
+                    <option key={contributor.id} value={contributor.login}>
+                      {contributor.login}
+                    </option>
+                  );
+                })}
+              </select>
+              
+              {selectedContributor && (
+                <button 
+                  className="clear-dropdown-filter"
+                  onClick={() => onContributorFilter(null)}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {isLoadingContributors && (
+          <div className="loading-contributors">
+            <div className="loading-spinner small"></div>
+            <span>Loading contributors...</span>
+          </div>
+        )}
       </div>
         
         {isLoading && (
@@ -118,7 +169,16 @@ const PullRequestsList: React.FC<PullRequestsListProps> = ({
         
         {!isLoading && !error && pullRequests.length === 0 && (
           <div className="pr-empty">
-            <p>No pull requests found for this repository.</p>
+            {selectedContributor ? (
+              <p>
+                No pull requests found for contributor <strong>{selectedContributor}</strong>. 
+                <button className="clear-filter-button" onClick={() => onContributorFilter(null)}>
+                  Clear filter
+                </button>
+              </p>
+            ) : (
+              <p>No pull requests found for this repository.</p>
+            )}
           </div>
         )}
         
