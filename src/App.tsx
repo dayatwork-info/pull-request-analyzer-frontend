@@ -4,6 +4,7 @@ import Auth from './components/Auth/Auth';
 import { isAuthenticated, clearSession, fetchGitHubUser, fetchGitHubRepositories, fetchGitHubRepoPulls, fetchPullRequestDetail, PullRequestDetail as PullRequestDetailType } from './services/authService';
 import PullRequestsList, { PullRequest } from './components/PullRequests/PullRequestsList';
 import PullRequestDetail from './components/PullRequests/PullRequestDetail';
+import Navbar from './components/Navigation/Navbar';
 
 // Helper function to determine language color
 const getLanguageColor = (language: string): string => {
@@ -46,7 +47,10 @@ function App() {
   const [selectedRepo, setSelectedRepo] = useState<{owner: string; name: string} | null>(null);
   const [pullRequests, setPullRequests] = useState<PullRequest[]>([]);
   const [isLoadingPulls, setIsLoadingPulls] = useState<boolean>(false);
+  const [isLoadingMorePulls, setIsLoadingMorePulls] = useState<boolean>(false);
   const [pullsError, setPullsError] = useState<string | null>(null);
+  const [currentPullsPage, setCurrentPullsPage] = useState<number>(1);
+  const [hasMorePulls, setHasMorePulls] = useState<boolean>(true);
   
   // Pull request detail state
   const [selectedPull, setSelectedPull] = useState<number | null>(null);
@@ -199,11 +203,15 @@ function App() {
     setPullsError(null);
     setPullRequests([]);
     setCurrentView('pulls');
+    setCurrentPullsPage(1);
+    setHasMorePulls(true);
     
-    fetchGitHubRepoPulls(githubToken, owner, repoName)
+    fetchGitHubRepoPulls(githubToken, owner, repoName, 1)
       .then(pullsData => {
         setPullRequests(pullsData);
         setPullsError(null);
+        // If we got fewer pull requests than expected per page, there are no more to load
+        setHasMorePulls(pullsData.length === 10);
       })
       .catch(error => {
         setPullRequests([]);
@@ -212,6 +220,31 @@ function App() {
       })
       .finally(() => {
         setIsLoadingPulls(false);
+      });
+  };
+  
+  // Function to load more pull requests
+  const loadMorePullRequests = (page: number) => {
+    if (!selectedRepo || !githubToken || isLoadingMorePulls || !hasMorePulls) return;
+    
+    setIsLoadingMorePulls(true);
+    
+    fetchGitHubRepoPulls(githubToken, selectedRepo.owner, selectedRepo.name, page)
+      .then(newPulls => {
+        if (newPulls.length === 0) {
+          setHasMorePulls(false);
+        } else {
+          setPullRequests(prevPulls => [...prevPulls, ...newPulls]);
+          setCurrentPullsPage(page);
+          setHasMorePulls(newPulls.length === 10);
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching more pull requests:', error);
+        // Don't set error state here to avoid disrupting the user experience
+      })
+      .finally(() => {
+        setIsLoadingMorePulls(false);
       });
   };
   
@@ -256,6 +289,18 @@ function App() {
   const toggleTokenVisibility = () => {
     setIsTokenVisible(!isTokenVisible);
   };
+  
+  // Helper function to get the appropriate title for the navbar
+  const getNavbarTitle = (): string => {
+    if (currentView === 'repos') {
+      return 'GitHub Repositories';
+    } else if (currentView === 'pulls' && selectedRepo) {
+      return `Pull Requests - ${selectedRepo.owner}/${selectedRepo.name}`;
+    } else if (currentView === 'pullDetail' && selectedRepo && selectedPull) {
+      return `PR #${selectedPull} - ${selectedRepo.owner}/${selectedRepo.name}`;
+    }
+    return 'Day at Work - PR Explorer';
+  };
 
   // Render the current view based on state
   const renderCurrentView = () => {
@@ -265,7 +310,7 @@ function App() {
           pullRequest={pullRequestDetail}
           isLoading={isLoadingPullDetail}
           error={pullDetailError}
-          onBack={handleBackToPulls}
+          onBack={() => {}} // We're using the Navbar back button now
         />
       );
     }
@@ -276,9 +321,12 @@ function App() {
           pullRequests={pullRequests}
           isLoading={isLoadingPulls}
           error={pullsError}
-          onBack={handleBackToRepos}
+          onBack={() => {}} // We're using the Navbar back button now
           repoName={selectedRepo.name}
           onPullRequestClick={handlePullRequestClick}
+          onLoadMore={loadMorePullRequests}
+          hasMorePulls={hasMorePulls}
+          isLoadingMore={isLoadingMorePulls}
         />
       );
     }
@@ -286,12 +334,6 @@ function App() {
     // Default view - Repositories
     return (
       <div className="main-content">
-        <div className="user-panel">
-          <button onClick={handleLogout} className="logout-button">
-            Logout
-          </button>
-        </div>
-        
         <div className="token-container">
           <label htmlFor="github-token">GitHub Personal Access Token</label>
           <div className="input-group">
@@ -314,7 +356,7 @@ function App() {
             </button>
           </div>
           <p className="token-info">
-            Your token is used to understand the PRs created by you.
+            Your token is used to understand the PRs created.
           </p>
           
           {isLoadingUser && (
@@ -326,18 +368,6 @@ function App() {
           {userError && (
             <div className="error-message">
               {userError}
-            </div>
-          )}
-          
-          {githubUser && (
-            <div className="github-user-profile">
-              <div className="user-avatar">
-                <img src={githubUser.avatar_url} alt={`${githubUser.login}'s avatar`} />
-              </div>
-              <div className="user-info">
-                <h3>{githubUser.name || githubUser.login}</h3>
-                <p>@{githubUser.login}</p>
-              </div>
             </div>
           )}
           
@@ -365,7 +395,15 @@ function App() {
                   >
                     <div className="repository-header">
                       <h4 className="repository-name">{repo.name}</h4>
-                      <span className="repository-visibility">{repo.visibility}</span>
+                      <span className="repository-visibility">
+                        {repo.visibility === 'private' && (
+                          <svg className="lock-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M19 11H5C3.89543 11 3 11.8954 3 13V20C3 21.1046 3.89543 22 5 22H19C20.1046 22 21 21.1046 21 20V13C21 11.8954 20.1046 11 19 11Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M7 11V7C7 5.93913 7.42143 4.92172 8.17157 4.17157C8.92172 3.42143 9.93913 3 11 3H13C14.0609 3 15.0783 3.42143 15.8284 4.17157C16.5786 4.92172 17 5.93913 17 7V11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                        {repo.visibility}
+                      </span>
                     </div>
                     <p className="repository-description">
                       {repo.description || "No description provided"}
@@ -414,15 +452,28 @@ function App() {
 
   return (
     <div className="App">
-      <header className="App-header">
-        <h1>Day at Work - PR Explorer</h1>
-        
+      {authenticated && (
+        <Navbar 
+          title={getNavbarTitle()}
+          showBackButton={currentView !== 'repos'}
+          onBack={currentView === 'pullDetail' ? handleBackToPulls : handleBackToRepos}
+          showLogout={true}
+          onLogout={handleLogout}
+          username={githubUser?.name || githubUser?.login}
+          avatarUrl={githubUser?.avatar_url}
+        />
+      )}
+      
+      <main className="App-main">
         {!authenticated ? (
-          <Auth onLogin={handleLogin} />
+          <div className="auth-container">
+            <h1 className="app-title">Day at Work - PR Explorer</h1>
+            <Auth onLogin={handleLogin} />
+          </div>
         ) : (
           renderCurrentView()
         )}
-      </header>
+      </main>
     </div>
   );
 }

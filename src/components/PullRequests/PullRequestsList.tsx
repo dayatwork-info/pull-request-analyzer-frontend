@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import './PullRequestsList.css';
 
 export interface PullRequest {
@@ -31,6 +31,9 @@ interface PullRequestsListProps {
   onBack: () => void;
   repoName: string;
   onPullRequestClick: (pullNumber: number) => void;
+  onLoadMore?: (page: number) => void;
+  hasMorePulls?: boolean;
+  isLoadingMore?: boolean;
 }
 
 const PullRequestsList: React.FC<PullRequestsListProps> = ({ 
@@ -39,8 +42,40 @@ const PullRequestsList: React.FC<PullRequestsListProps> = ({
   error, 
   onBack,
   repoName,
-  onPullRequestClick
+  onPullRequestClick,
+  onLoadMore = () => {},
+  hasMorePulls = false,
+  isLoadingMore = false
 }) => {
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const listContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Implement scroll detection for infinite scrolling
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!listContainerRef.current || isLoadingMore || !hasMorePulls) return;
+      
+      const container = listContainerRef.current;
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      
+      // Load more pull requests when the user has scrolled to near the bottom
+      if (scrollTop + clientHeight >= scrollHeight - 200) {
+        const nextPage = currentPage + 1;
+        setCurrentPage(nextPage);
+        onLoadMore(nextPage);
+      }
+    };
+    
+    const containerElement = listContainerRef.current;
+    if (containerElement && pullRequests.length > 0) {
+      containerElement.addEventListener('scroll', handleScroll);
+      
+      return () => {
+        containerElement.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, [pullRequests, isLoadingMore, hasMorePulls, currentPage, onLoadMore]);
+
   // Get state label styling
   const getStateStyle = (state: string, merged: boolean): { className: string, label: string } => {
     if (merged) {
@@ -65,9 +100,6 @@ const PullRequestsList: React.FC<PullRequestsListProps> = ({
   return (
     <div className="pull-requests-container">
       <div className="pr-header">
-        <button className="back-button" onClick={onBack}>
-          ← Back to repositories
-        </button>
         <h2>Pull Requests for {repoName}</h2>
       </div>
         
@@ -91,7 +123,7 @@ const PullRequestsList: React.FC<PullRequestsListProps> = ({
         )}
         
         {!isLoading && !error && pullRequests.length > 0 && (
-          <div className="pr-list">
+          <div className="pr-list" ref={listContainerRef}>
             {pullRequests.map(pr => {
               const stateStyle = getStateStyle(pr.state, !!pr.merged_at);
               
@@ -151,6 +183,19 @@ const PullRequestsList: React.FC<PullRequestsListProps> = ({
                 </div>
               );
             })}
+            
+            {isLoadingMore && (
+              <div className="loading-more-indicator">
+                <div className="loading-spinner"></div>
+                <span>Loading more pull requests...</span>
+              </div>
+            )}
+            
+            {!hasMorePulls && pullRequests.length > 0 && (
+              <div className="no-more-pulls">
+                No more pull requests to load
+              </div>
+            )}
           </div>
         )}
     </div>

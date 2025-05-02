@@ -55,9 +55,6 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
   return (
     <div className="pull-request-detail-container">
       <div className="pr-header">
-        <button className="back-button" onClick={onBack}>
-          ← Back to pull requests
-        </button>
       </div>
 
       {isLoading && (
