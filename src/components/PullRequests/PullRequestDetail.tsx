@@ -7,13 +7,15 @@ interface PullRequestDetailProps {
   isLoading: boolean;
   error: string | null;
   onBack: () => void;
+  currentUser?: { login: string } | null;
 }
 
 const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
   pullRequest,
   isLoading,
   error,
-  onBack
+  onBack,
+  currentUser = null
 }) => {
   // Format date
   const formatDate = (dateString: string): string => {
@@ -60,7 +62,7 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
       {isLoading && (
         <div className="pr-loading">
           <div className="loading-spinner"></div>
-          <p>Loading pull request details...</p>
+          <p>Loading pull request summary...</p>
         </div>
       )}
       
