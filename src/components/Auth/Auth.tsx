@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
 import './Auth.css';
+import { 
+  login as authLogin, 
+  signup as authSignup, 
+  verifyAccount, 
+  setAccessToken
+} from '../../services/authService';
 
 interface AuthProps {
-  onLogin: (token: string) => void;
+  onLogin: (authToken: string) => void;
 }
 
 type AuthScreen = 'login' | 'signup' | 'verify';
@@ -19,7 +25,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   // Development mode flag
   const isDevelopment = process.env.NODE_ENV === 'development';
 
-  const API_URL = 'http://localhost:3000/auth'; // Local authentication API endpoint
+  const API_URL = 'http://localhost:3001/auth'; // Local authentication API endpoint
 
   const validateForm = (): boolean => {
     setError('');
@@ -40,120 +46,43 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     return true;
   };
 
-  const simulateLogin = () => {
-    setLoading(true);
-    
-    // Simulate network delay
-    setTimeout(() => {
-      const mockToken = 'dev-mode-token-' + Math.random().toString(36).substring(2, 15);
-      sessionStorage.setItem('auth_token', mockToken);
-      onLogin(mockToken);
-      setLoading(false);
-    }, 1000);
-  };
-
-  const simulateSignup = () => {
-    setLoading(true);
-    
-    // Simulate network delay
-    setTimeout(() => {
-      const mockToken = 'verify-token-' + Math.random().toString(36).substring(2, 15);
-      setSignupToken(mockToken);
-      setCurrentScreen('verify');
-      setLoading(false);
-    }, 1000);
-  };
-
-  const simulateVerification = () => {
-    setLoading(true);
-    
-    // Simulate network delay
-    setTimeout(() => {
-      const authToken = 'auth-token-' + Math.random().toString(36).substring(2, 15);
-      sessionStorage.setItem('auth_token', authToken);
-      onLogin(authToken);
-      setLoading(false);
-    }, 1000);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) return;
     
-    // Comment out this part to use real API even in development mode
-    // If you want to use simulated responses, uncomment this block
-    /*
-    if (isDevelopment) {
-      if (currentScreen === 'login') {
-        simulateLogin();
-      } else if (currentScreen === 'signup') {
-        simulateSignup();
-      } else if (currentScreen === 'verify') {
-        simulateVerification();
-      }
-      return;
-    }
-    */
-    
     setLoading(true);
     
     try {
-      let endpoint = '';
-      let body = {};
-      
       if (currentScreen === 'login') {
-        endpoint = `${API_URL}/login`;
-        body = { email, password };
+        const data = await authLogin(email, password);
+        onLogin(data.accessToken);
       } else if (currentScreen === 'signup') {
-        endpoint = `${API_URL}/signup`;
-        body = { email, password };
+        const data = await authSignup(email, password);
+        if (data.verificationToken) {
+          setSignupToken(data.verificationToken);
+          setCurrentScreen('verify');
+        } else {
+          setError('No verification token received');
+        }
       } else if (currentScreen === 'verify') {
-        endpoint = `${API_URL}/verify`;
-        body = { token: verificationToken };
-      }
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        credentials: 'include', // Include cookies for authentication
-        body: JSON.stringify(body),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Something went wrong');
-      }
-      
-      if (currentScreen === 'signup' && data.verificationToken) {
-        setSignupToken(data.verificationToken);
-        setCurrentScreen('verify');
-      } else if (data.token) {
-        sessionStorage.setItem('auth_token', data.token);
-        onLogin(data.token);
-      } else {
-        setError('No authentication token received');
+        const data = await verifyAccount(verificationToken);
+        if (data.accessToken) {
+          onLogin(data.accessToken);
+        } else {
+          setError('No authentication token received');
+        }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : 
+               typeof err === 'object' && err && 'message' in err ? 
+               (err as { message: string }).message : 'An error occurred');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDevBypass = () => {
-    if (currentScreen === 'login') {
-      simulateLogin();
-    } else if (currentScreen === 'signup') {
-      simulateSignup();
-    } else if (currentScreen === 'verify') {
-      simulateVerification();
-    }
-  };
 
   const handleScreenChange = (screen: AuthScreen) => {
     setError('');
@@ -309,22 +238,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           {currentScreen === 'signup' && renderSignupForm()}
           {currentScreen === 'verify' && renderVerificationForm()}
         </form>
-        
-        {isDevelopment && (
-          <div className="dev-tools">
-            <p className="dev-mode-label">Development Mode</p>
-            <button 
-              onClick={handleDevBypass}
-              className="dev-login-button"
-              disabled={loading}
-            >
-              {currentScreen === 'login' && 'Bypass Login'}
-              {currentScreen === 'signup' && 'Bypass Signup'}
-              {currentScreen === 'verify' && 'Bypass Verification'}
-              {' '}(Dev Only)
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import Auth from './components/Auth/Auth';
-import { isAuthenticated, getToken, clearSession, bypassLogin, fetchGitHubUser, fetchGitHubRepositories, fetchGitHubRepoPulls, fetchPullRequestDetail, PullRequestDetail as PullRequestDetailType } from './services/authService';
+import { isAuthenticated, clearSession, fetchGitHubUser, fetchGitHubRepositories, fetchGitHubRepoPulls, fetchPullRequestDetail, PullRequestDetail as PullRequestDetailType } from './services/authService';
 import PullRequestsList, { PullRequest } from './components/PullRequests/PullRequestsList';
 import PullRequestDetail from './components/PullRequests/PullRequestDetail';
 
@@ -256,11 +256,6 @@ function App() {
   const toggleTokenVisibility = () => {
     setIsTokenVisible(!isTokenVisible);
   };
-  
-  const handleDirectDevLogin = async () => {
-    await bypassLogin();
-    setAuthenticated(true);
-  };
 
   // Render the current view based on state
   const renderCurrentView = () => {
@@ -412,12 +407,6 @@ function App() {
               )}
             </div>
           )}
-          
-          {isDevelopment && (
-            <div className="dev-mode-indicator">
-              Development Mode Active
-            </div>
-          )}
         </div>
       </div>
     );
@@ -427,17 +416,6 @@ function App() {
     <div className="App">
       <header className="App-header">
         <h1>Day at Work - PR Explorer</h1>
-        
-        {isDevelopment && !authenticated && (
-          <div className="quick-dev-login">
-            <button 
-              onClick={handleDirectDevLogin} 
-              className="dev-login-button"
-            >
-              Quick Dev Login
-            </button>
-          </div>
-        )}
         
         {!authenticated ? (
           <Auth onLogin={handleLogin} />

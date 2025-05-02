@@ -1,5 +1,5 @@
-const API_URL = 'http://localhost:3000/auth'; // Local authentication API endpoint
-const GITHUB_API_URL = 'http://localhost:3000/github'; // Local GitHub API endpoint
+const API_URL = 'http://localhost:3001/auth'; // Local authentication API endpoint
+const GITHUB_API_URL = 'http://localhost:3001/github'; // Local GitHub API endpoint
 
 // Development mode flag
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -60,7 +60,8 @@ interface GitHubPullRequest {
 }
 
 interface LoginResponse {
-  token: string;
+  accessToken: string;
+  refreshToken: string;
   user?: User;
   message?: string;
 }
@@ -71,7 +72,8 @@ interface SignupResponse {
 }
 
 interface VerifyResponse {
-  token: string;
+  accessToken: string;
+  refreshToken: string;
   user?: User;
   message?: string;
 }
@@ -82,13 +84,10 @@ interface AuthError {
 }
 
 export const login = async (email: string, password: string): Promise<LoginResponse> => {
-  // Comment out to use real API even in development mode
-  // Uncomment to use simulated login
-  /*
-  if (isDevelopment) {
+  // For development mode, optionally use simulated login
+  if (isDevelopment && false) { // Set to true to use dev mode login
     return devModeLogin();
   }
-  */
 
   try {
     const response = await fetch(`${API_URL}/login`, {
@@ -110,9 +109,9 @@ export const login = async (email: string, password: string): Promise<LoginRespo
       };
     }
 
-    if (data.token) {
-      setToken(data.token);
-    }
+    // Store tokens from the response
+    setAccessToken(data.accessToken);
+    setRefreshToken(data.refreshToken);
 
     return data;
   } catch (error) {
@@ -123,13 +122,10 @@ export const login = async (email: string, password: string): Promise<LoginRespo
 };
 
 export const signup = async (email: string, password: string): Promise<SignupResponse> => {
-  // Comment out to use real API even in development mode
-  // Uncomment to use simulated signup
-  /*
-  if (isDevelopment) {
+  // For development mode, optionally use simulated signup
+  if (isDevelopment && false) { // Set to true to use dev mode signup
     return devModeSignup();
   }
-  */
 
   try {
     const response = await fetch(`${API_URL}/signup`, {
@@ -160,13 +156,10 @@ export const signup = async (email: string, password: string): Promise<SignupRes
 };
 
 export const verifyAccount = async (token: string): Promise<VerifyResponse> => {
-  // Comment out to use real API even in development mode
-  // Uncomment to use simulated verification
-  /*
-  if (isDevelopment) {
+  // For development mode, optionally use simulated verification
+  if (isDevelopment && false) { // Set to true to use dev mode verification
     return devModeVerify();
   }
-  */
 
   try {
     const response = await fetch(`${API_URL}/verify`, {
@@ -188,8 +181,13 @@ export const verifyAccount = async (token: string): Promise<VerifyResponse> => {
       };
     }
 
-    if (data.token) {
-      setToken(data.token);
+    // Store tokens from the response
+    if (data.accessToken) {
+      setAccessToken(data.accessToken);
+    }
+    
+    if (data.refreshToken) {
+      setRefreshToken(data.refreshToken);
     }
 
     return data;
@@ -204,11 +202,15 @@ export const verifyAccount = async (token: string): Promise<VerifyResponse> => {
 export const devModeLogin = (): Promise<LoginResponse> => {
   return new Promise((resolve) => {
     setTimeout(() => {
-      const mockToken = 'dev-mode-token-' + Math.random().toString(36).substring(2, 15);
-      setToken(mockToken); // This now uses sessionStorage
+      const mockAccessToken = 'dev-access-token-' + Math.random().toString(36).substring(2, 15);
+      const mockRefreshToken = 'dev-refresh-token-' + Math.random().toString(36).substring(2, 15);
+      
+      setAccessToken(mockAccessToken);
+      setRefreshToken(mockRefreshToken);
       
       resolve({
-        token: mockToken,
+        accessToken: mockAccessToken,
+        refreshToken: mockRefreshToken,
         user: {
           id: 'dev-user-id',
           email: 'dev@example.com',
@@ -235,11 +237,15 @@ export const devModeSignup = (): Promise<SignupResponse> => {
 export const devModeVerify = (): Promise<VerifyResponse> => {
   return new Promise((resolve) => {
     setTimeout(() => {
-      const mockToken = 'dev-verified-token-' + Math.random().toString(36).substring(2, 15);
-      setToken(mockToken); // This now uses sessionStorage
+      const mockAccessToken = 'dev-access-token-' + Math.random().toString(36).substring(2, 15);
+      const mockRefreshToken = 'dev-refresh-token-' + Math.random().toString(36).substring(2, 15);
+      
+      setAccessToken(mockAccessToken);
+      setRefreshToken(mockRefreshToken);
       
       resolve({
-        token: mockToken,
+        accessToken: mockAccessToken,
+        refreshToken: mockRefreshToken,
         user: {
           id: 'dev-user-id',
           email: 'dev@example.com',
@@ -256,20 +262,79 @@ export const devModeVerify = (): Promise<VerifyResponse> => {
  * Using sessionStorage which clears when the browser tab is closed,
  * providing better security than localStorage.
  */
-export const getToken = (): string | null => {
-  return sessionStorage.getItem('auth_token');
+export const getAccessToken = (): string | null => {
+  return sessionStorage.getItem('access_token');
 };
 
-export const setToken = (token: string): void => {
-  sessionStorage.setItem('auth_token', token);
+export const getRefreshToken = (): string | null => {
+  return sessionStorage.getItem('refresh_token');
 };
 
-export const removeToken = (): void => {
-  sessionStorage.removeItem('auth_token');
+export const setAccessToken = (token: string): void => {
+  sessionStorage.setItem('access_token', token);
+};
+
+export const setRefreshToken = (token: string): void => {
+  sessionStorage.setItem('refresh_token', token);
+};
+
+export const removeAccessToken = (): void => {
+  sessionStorage.removeItem('access_token');
+};
+
+export const removeRefreshToken = (): void => {
+  sessionStorage.removeItem('refresh_token');
 };
 
 export const isAuthenticated = (): boolean => {
-  return !!getToken();
+  return !!getAccessToken();
+};
+
+/**
+ * Refresh token functionality to get new access token when it expires
+ */
+export const refreshTokens = async (): Promise<boolean> => {
+  const refreshToken = getRefreshToken();
+  
+  if (!refreshToken) {
+    return false;
+  }
+  
+  try {
+    const response = await fetch(`${API_URL}/refresh-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ refreshToken }),
+    });
+    
+    if (!response.ok) {
+      // If refresh token is invalid, clear the session
+      clearSession();
+      return false;
+    }
+    
+    const data = await response.json();
+    
+    if (data.accessToken) {
+      setAccessToken(data.accessToken);
+      
+      // If a new refresh token is returned, update it
+      if (data.refreshToken) {
+        setRefreshToken(data.refreshToken);
+      }
+      
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    return false;
+  }
 };
 
 /**
@@ -277,20 +342,62 @@ export const isAuthenticated = (): boolean => {
  */
 export const clearSession = (): void => {
   // Clear all auth-related items from sessionStorage
-  removeToken();
+  removeAccessToken();
+  removeRefreshToken();
   
   // Add any additional session items to clear here
 };
 
 /**
+ * Utility function to handle API requests with automatic token refresh
+ * This will automatically attempt to refresh the token if a request fails with a 401 status
+ */
+export const fetchWithTokenRefresh = async (
+  url: string, 
+  options: RequestInit = {}, 
+  retryAttempt: number = 0
+): Promise<Response> => {
+  // Don't allow infinite retries
+  if (retryAttempt > 1) {
+    throw new Error('Authentication failed after token refresh attempt');
+  }
+  
+  // Add auth header if not already present
+  const headers = new Headers(options.headers || {});
+  const accessToken = getAccessToken();
+  
+  if (accessToken && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+  
+  // Make the request
+  const response = await fetch(url, {
+    ...options,
+    headers
+  });
+  
+  // If unauthorized and we have a refresh token, try to refresh and retry
+  if (response.status === 401 && retryAttempt === 0) {
+    const refreshSuccessful = await refreshTokens();
+    
+    if (refreshSuccessful) {
+      // Retry the request with the new token
+      return fetchWithTokenRefresh(url, options, retryAttempt + 1);
+    }
+  }
+  
+  return response;
+};
+
+/**
  * GitHub API related functions
  */
-export const fetchGitHubUser = async (token: string): Promise<GitHubUser> => {
+export const fetchGitHubUser = async (githubToken: string): Promise<GitHubUser> => {
   try {
-    const response = await fetch(`${GITHUB_API_URL}/user`, {
+    const response = await fetchWithTokenRefresh(`${GITHUB_API_URL}/user`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'X-GitHub-Token': githubToken,
         'Accept': 'application/json',
       },
     });
@@ -306,12 +413,12 @@ export const fetchGitHubUser = async (token: string): Promise<GitHubUser> => {
   }
 };
 
-export const fetchGitHubRepositories = async (token: string, page: number = 1): Promise<GitHubRepository[]> => {
+export const fetchGitHubRepositories = async (githubToken: string, page: number = 1): Promise<GitHubRepository[]> => {
   try {
-    const response = await fetch(`${GITHUB_API_URL}/repositories?page=${page}`, {
+    const response = await fetchWithTokenRefresh(`${GITHUB_API_URL}/repositories?page=${page}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'X-GitHub-Token': githubToken,
         'Accept': 'application/json',
       },
     });
@@ -328,15 +435,15 @@ export const fetchGitHubRepositories = async (token: string, page: number = 1): 
 };
 
 export const fetchGitHubRepoPulls = async (
-  token: string, 
+  githubToken: string, 
   owner: string, 
   repo: string
 ): Promise<GitHubPullRequest[]> => {
   try {
-    const response = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repo}/pulls`, {
+    const response = await fetchWithTokenRefresh(`${GITHUB_API_URL}/repos/${owner}/${repo}/pulls`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'X-GitHub-Token': githubToken,
         'Accept': 'application/json',
       },
     });
@@ -390,16 +497,16 @@ export interface PullRequestDetail {
 }
 
 export const fetchPullRequestDetail = async (
-  token: string,
+  githubToken: string,
   owner: string,
   repo: string,
   pullNumber: number
 ): Promise<PullRequestDetail> => {
   try {
-    const response = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repo}/pulls/${pullNumber}`, {
+    const response = await fetchWithTokenRefresh(`${GITHUB_API_URL}/repos/${owner}/${repo}/pulls/${pullNumber}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'X-GitHub-Token': githubToken,
         'Accept': 'application/json',
       },
     });
@@ -431,17 +538,27 @@ export const bypassLogin = async (): Promise<void> => {
       
       if (response.ok) {
         const data = await response.json();
-        if (data.token) {
-          setToken(data.token);
-          return;
-        }
+        setAccessToken(data.accessToken);
+        setRefreshToken(data.refreshToken);
+        return;
       }
     } catch (error) {
-      console.log('Dev login endpoint not available, using mock token instead');
+      console.log('Dev login endpoint not available, using mock tokens instead');
     }
     
-    // Fallback to mock token
-    const mockToken = 'dev-mode-token-' + Math.random().toString(36).substring(2, 15);
-    setToken(mockToken); // This now uses sessionStorage
+    // Use our devModeLogin to provide consistent dev tokens
+    try {
+      const loginData = await devModeLogin();
+      // Tokens are already set within devModeLogin
+      return;
+    } catch (error) {
+      console.error('Error using dev mode login, falling back to basic mock tokens');
+      
+      // Ultimate fallback if even the devModeLogin fails
+      const mockAccessToken = 'dev-access-token-' + Math.random().toString(36).substring(2, 15);
+      const mockRefreshToken = 'dev-refresh-token-' + Math.random().toString(36).substring(2, 15);
+      setAccessToken(mockAccessToken);
+      setRefreshToken(mockRefreshToken);
+    }
   }
 };
