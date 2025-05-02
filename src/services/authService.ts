@@ -498,16 +498,23 @@ export const fetchPullRequestDetail = async (
   githubToken: string,
   owner: string,
   repo: string,
-  pullNumber: number
+  pullNumber: number,
+  skipSummary: boolean = false
 ): Promise<PullRequestDetail> => {
   try {
-    const response = await fetchWithTokenRefresh(`${GITHUB_API_URL}/repos/${owner}/${repo}/pulls/${pullNumber}`, {
-      method: 'GET',
-      headers: {
-        'X-GitHub-Token': githubToken,
-        'Accept': 'application/json',
-      },
-    });
+    // Add skip_summary parameter to the URL if needed
+    const skipParam = skipSummary ? '?skip_summary=true' : '';
+    
+    const response = await fetchWithTokenRefresh(
+      `${GITHUB_API_URL}/repos/${owner}/${repo}/pulls/${pullNumber}${skipParam}`, 
+      {
+        method: 'GET',
+        headers: {
+          'X-GitHub-Token': githubToken,
+          'Accept': 'application/json',
+        },
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to fetch pull request details for ${owner}/${repo}#${pullNumber}`);

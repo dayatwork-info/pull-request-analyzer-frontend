@@ -132,6 +132,26 @@ function App() {
     setRepoContributors(null);
     setContributors([]);
     setCurrentView('repos');
+    
+    // Clear PR summaries from sessionStorage
+    try {
+      // Get the index of PR summaries
+      const prIndex = sessionStorage.getItem('pr_summaries_index');
+      
+      if (prIndex) {
+        const prSummaries = JSON.parse(prIndex);
+        
+        // Remove each PR summary entry
+        prSummaries.forEach((entry: { key: string }) => {
+          sessionStorage.removeItem(entry.key);
+        });
+        
+        // Remove the index itself
+        sessionStorage.removeItem('pr_summaries_index');
+      }
+    } catch (error) {
+      console.error('Error clearing PR summaries from sessionStorage:', error);
+    }
   };
 
   const handleTokenChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -415,10 +435,34 @@ function App() {
     setPullRequestDetail(null);
     setCurrentView('pullDetail');
     
-    fetchPullRequestDetail(githubToken, selectedRepo.owner, selectedRepo.name, pullNumber)
+    // Check if PR summary is already in sessionStorage
+    const prKey = `pr_summary_${selectedRepo.owner}_${selectedRepo.name}_${pullNumber}`;
+    const storedPRSummary = sessionStorage.getItem(prKey);
+    
+    // Determine if we should skip summary generation
+    const skipSummary = !!storedPRSummary;
+    
+    // Fetch PR details with skip_summary flag if we already have the summary
+    fetchPullRequestDetail(githubToken, selectedRepo.owner, selectedRepo.name, pullNumber, skipSummary)
       .then(pullDetailData => {
+        // If we have a stored summary and the API didn't return one, use the stored summary
+        if (skipSummary && storedPRSummary && !pullDetailData.prSummary) {
+          const storedData = JSON.parse(storedPRSummary);
+          pullDetailData.prSummary = storedData.summary;
+        }
+        
         setPullRequestDetail(pullDetailData);
         setPullDetailError(null);
+        
+        // Store PR summary in sessionStorage if it exists
+        if (pullDetailData && pullDetailData.prSummary) {
+          storePRSummaryInSession(
+            selectedRepo.owner, 
+            selectedRepo.name, 
+            pullNumber, 
+            pullDetailData
+          );
+        }
       })
       .catch(error => {
         setPullRequestDetail(null);
@@ -429,10 +473,64 @@ function App() {
         setIsLoadingPullDetail(false);
       });
   };
+  
+  /**
+   * Helper function to store PR summary in sessionStorage
+   */
+  const storePRSummaryInSession = (
+    owner: string, 
+    repoName: string, 
+    pullNumber: number, 
+    pullData: PullRequestDetailType
+  ) => {
+    try {
+      // Create a unique key for this PR
+      const prKey = `pr_summary_${owner}_${repoName}_${pullNumber}`;
+      
+      // Store the PR summary
+      sessionStorage.setItem(prKey, JSON.stringify({
+        summary: pullData.prSummary || '',
+        title: pullData.title,
+        url: pullData.html_url,
+        storedAt: new Date().toISOString()
+      }));
+      
+      // Store reference in a PR summary index for easy retrieval
+      const prIndex = sessionStorage.getItem('pr_summaries_index');
+      const prSummaries = prIndex ? JSON.parse(prIndex) : [];
+      
+      // Check if this PR is already in the index
+      const existingEntry = prSummaries.findIndex(
+        (entry: {repo: string, pr: number}) => 
+          entry.repo === `${owner}/${repoName}` && 
+          entry.pr === pullNumber
+      );
+      
+      // If not in index, add it
+      if (existingEntry === -1) {
+        prSummaries.push({
+          repo: `${owner}/${repoName}`,
+          pr: pullNumber,
+          key: prKey,
+          addedAt: new Date().toISOString()
+        });
+        
+        // Store the updated index
+        sessionStorage.setItem('pr_summaries_index', JSON.stringify(prSummaries));
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error storing PR summary in sessionStorage:', error);
+      return false;
+    }
+  };
+  
 
   const toggleTokenVisibility = () => {
     setIsTokenVisible(!isTokenVisible);
   };
+  
   
   // Helper function to get the appropriate title for the navbar
   const getNavbarTitle = (): string => {
@@ -457,6 +555,7 @@ function App() {
           isLoading={isLoadingPullDetail}
           error={pullDetailError}
           onBack={() => {}} // We're using the Navbar back button now
+          currentUser={githubUser}
         />
       );
     }
