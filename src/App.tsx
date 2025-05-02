@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import Auth from './components/Auth/Auth';
-import { isAuthenticated, getToken, clearSession, bypassLogin, fetchGitHubUser, fetchGitHubRepositories, fetchGitHubRepoPulls } from './services/authService';
+import { isAuthenticated, getToken, clearSession, bypassLogin, fetchGitHubUser, fetchGitHubRepositories, fetchGitHubRepoPulls, fetchPullRequestDetail, PullRequestDetail as PullRequestDetailType } from './services/authService';
 import PullRequestsList, { PullRequest } from './components/PullRequests/PullRequestsList';
+import PullRequestDetail from './components/PullRequests/PullRequestDetail';
 
 // Helper function to determine language color
 const getLanguageColor = (language: string): string => {
@@ -39,13 +40,19 @@ function App() {
   const [hasMoreRepos, setHasMoreRepos] = useState<boolean>(true);
   
   // Navigation and view state
-  const [currentView, setCurrentView] = useState<'repos' | 'pulls'>('repos');
+  const [currentView, setCurrentView] = useState<'repos' | 'pulls' | 'pullDetail'>('repos');
   
   // Pull requests state
   const [selectedRepo, setSelectedRepo] = useState<{owner: string; name: string} | null>(null);
   const [pullRequests, setPullRequests] = useState<PullRequest[]>([]);
   const [isLoadingPulls, setIsLoadingPulls] = useState<boolean>(false);
   const [pullsError, setPullsError] = useState<string | null>(null);
+  
+  // Pull request detail state
+  const [selectedPull, setSelectedPull] = useState<number | null>(null);
+  const [pullRequestDetail, setPullRequestDetail] = useState<PullRequestDetailType | null>(null);
+  const [isLoadingPullDetail, setIsLoadingPullDetail] = useState<boolean>(false);
+  const [pullDetailError, setPullDetailError] = useState<string | null>(null);
   
   // Ref for the repositories container for infinite scrolling
   const reposContainerRef = React.useRef<HTMLDivElement>(null);
@@ -98,6 +105,9 @@ function App() {
     setSelectedRepo(null);
     setPullRequests([]);
     setPullsError(null);
+    setSelectedPull(null);
+    setPullRequestDetail(null);
+    setPullDetailError(null);
     setCurrentView('repos');
   };
 
@@ -209,6 +219,39 @@ function App() {
   const handleBackToRepos = () => {
     setCurrentView('repos');
   };
+  
+  // Function to go back to pull requests view
+  const handleBackToPulls = () => {
+    setCurrentView('pulls');
+    setSelectedPull(null);
+    setPullRequestDetail(null);
+    setPullDetailError(null);
+  };
+  
+  // Function to handle pull request click
+  const handlePullRequestClick = (pullNumber: number) => {
+    if (!selectedRepo || !githubToken) return;
+    
+    setSelectedPull(pullNumber);
+    setIsLoadingPullDetail(true);
+    setPullDetailError(null);
+    setPullRequestDetail(null);
+    setCurrentView('pullDetail');
+    
+    fetchPullRequestDetail(githubToken, selectedRepo.owner, selectedRepo.name, pullNumber)
+      .then(pullDetailData => {
+        setPullRequestDetail(pullDetailData);
+        setPullDetailError(null);
+      })
+      .catch(error => {
+        setPullRequestDetail(null);
+        setPullDetailError(`Failed to fetch details for pull request #${pullNumber}`);
+        console.error(`Error fetching pull request details:`, error);
+      })
+      .finally(() => {
+        setIsLoadingPullDetail(false);
+      });
+  };
 
   const toggleTokenVisibility = () => {
     setIsTokenVisible(!isTokenVisible);
@@ -221,6 +264,17 @@ function App() {
 
   // Render the current view based on state
   const renderCurrentView = () => {
+    if (currentView === 'pullDetail' && selectedRepo && selectedPull) {
+      return (
+        <PullRequestDetail
+          pullRequest={pullRequestDetail}
+          isLoading={isLoadingPullDetail}
+          error={pullDetailError}
+          onBack={handleBackToPulls}
+        />
+      );
+    }
+    
     if (currentView === 'pulls' && selectedRepo) {
       return (
         <PullRequestsList
@@ -229,6 +283,7 @@ function App() {
           error={pullsError}
           onBack={handleBackToRepos}
           repoName={selectedRepo.name}
+          onPullRequestClick={handlePullRequestClick}
         />
       );
     }
