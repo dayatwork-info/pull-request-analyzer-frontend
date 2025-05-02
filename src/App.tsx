@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import Auth from './components/Auth/Auth';
-import { isAuthenticated, getToken, clearSession, bypassLogin, fetchGitHubUser, fetchGitHubRepositories } from './services/authService';
+import { isAuthenticated, getToken, clearSession, bypassLogin, fetchGitHubUser, fetchGitHubRepositories, fetchGitHubRepoPulls } from './services/authService';
+import PullRequestsList, { PullRequest } from './components/PullRequests/PullRequestsList';
 
 // Helper function to determine language color
 const getLanguageColor = (language: string): string => {
@@ -36,6 +37,15 @@ function App() {
   const [reposError, setReposError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [hasMoreRepos, setHasMoreRepos] = useState<boolean>(true);
+  
+  // Navigation and view state
+  const [currentView, setCurrentView] = useState<'repos' | 'pulls'>('repos');
+  
+  // Pull requests state
+  const [selectedRepo, setSelectedRepo] = useState<{owner: string; name: string} | null>(null);
+  const [pullRequests, setPullRequests] = useState<PullRequest[]>([]);
+  const [isLoadingPulls, setIsLoadingPulls] = useState<boolean>(false);
+  const [pullsError, setPullsError] = useState<string | null>(null);
   
   // Ref for the repositories container for infinite scrolling
   const reposContainerRef = React.useRef<HTMLDivElement>(null);
@@ -85,6 +95,10 @@ function App() {
     setUserError(null);
     setRepositories([]);
     setReposError(null);
+    setSelectedRepo(null);
+    setPullRequests([]);
+    setPullsError(null);
+    setCurrentView('repos');
   };
 
   const handleTokenChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -167,6 +181,34 @@ function App() {
         setIsLoadingMoreRepos(false);
       });
   };
+  
+  // Function to handle repository click
+  const handleRepoClick = (owner: string, repoName: string) => {
+    setSelectedRepo({ owner, name: repoName });
+    setIsLoadingPulls(true);
+    setPullsError(null);
+    setPullRequests([]);
+    setCurrentView('pulls');
+    
+    fetchGitHubRepoPulls(githubToken, owner, repoName)
+      .then(pullsData => {
+        setPullRequests(pullsData);
+        setPullsError(null);
+      })
+      .catch(error => {
+        setPullRequests([]);
+        setPullsError(`Failed to fetch pull requests for ${owner}/${repoName}`);
+        console.error(`Error fetching pull requests:`, error);
+      })
+      .finally(() => {
+        setIsLoadingPulls(false);
+      });
+  };
+  
+  // Function to go back to repositories view
+  const handleBackToRepos = () => {
+    setCurrentView('repos');
+  };
 
   const toggleTokenVisibility = () => {
     setIsTokenVisible(!isTokenVisible);
@@ -175,6 +217,155 @@ function App() {
   const handleDirectDevLogin = async () => {
     await bypassLogin();
     setAuthenticated(true);
+  };
+
+  // Render the current view based on state
+  const renderCurrentView = () => {
+    if (currentView === 'pulls' && selectedRepo) {
+      return (
+        <PullRequestsList
+          pullRequests={pullRequests}
+          isLoading={isLoadingPulls}
+          error={pullsError}
+          onBack={handleBackToRepos}
+          repoName={selectedRepo.name}
+        />
+      );
+    }
+    
+    // Default view - Repositories
+    return (
+      <div className="main-content">
+        <div className="user-panel">
+          <button onClick={handleLogout} className="logout-button">
+            Logout
+          </button>
+        </div>
+        
+        <div className="token-container">
+          <label htmlFor="github-token">GitHub Personal Access Token</label>
+          <div className="input-group">
+            <input
+              id="github-token"
+              type={isTokenVisible ? "text" : "password"}
+              value={githubToken}
+              onChange={handleTokenChange}
+              className="token-input"
+              placeholder="Enter your GitHub PAT"
+              autoComplete="off"
+            />
+            <button 
+              className="visibility-toggle" 
+              onClick={toggleTokenVisibility}
+              aria-label={isTokenVisible ? "Hide token" : "Show token"}
+              type="button"
+            >
+              {isTokenVisible ? "Hide" : "Show"}
+            </button>
+          </div>
+          <p className="token-info">
+            Your token is used to understand the PRs created by you.
+          </p>
+          
+          {isLoadingUser && (
+            <div className="loading-indicator">
+              Loading GitHub user data...
+            </div>
+          )}
+          
+          {userError && (
+            <div className="error-message">
+              {userError}
+            </div>
+          )}
+          
+          {githubUser && (
+            <div className="github-user-profile">
+              <div className="user-avatar">
+                <img src={githubUser.avatar_url} alt={`${githubUser.login}'s avatar`} />
+              </div>
+              <div className="user-info">
+                <h3>{githubUser.name || githubUser.login}</h3>
+                <p>@{githubUser.login}</p>
+              </div>
+            </div>
+          )}
+          
+          {isLoadingRepos && (
+            <div className="loading-indicator">
+              Loading GitHub repositories...
+            </div>
+          )}
+          
+          {reposError && (
+            <div className="error-message">
+              {reposError}
+            </div>
+          )}
+          
+          {repositories.length > 0 && (
+            <div className="repositories-container" ref={reposContainerRef}>
+              <h3 className="repositories-title">Your Repositories</h3>
+              <div className="repositories-list">
+                {repositories.map(repo => (
+                  <div 
+                    key={repo.id} 
+                    className="repository-card"
+                    onClick={() => handleRepoClick(repo.owner.login, repo.name)}
+                  >
+                    <div className="repository-header">
+                      <h4 className="repository-name">{repo.name}</h4>
+                      <span className="repository-visibility">{repo.visibility}</span>
+                    </div>
+                    <p className="repository-description">
+                      {repo.description || "No description provided"}
+                    </p>
+                    <div className="repository-meta">
+                      {repo.language && (
+                        <span className="repository-language">
+                          <span className="language-dot" style={{ background: getLanguageColor(repo.language) }}></span>
+                          {repo.language}
+                        </span>
+                      )}
+                      {repo.stargazers_count > 0 && (
+                        <span className="repository-stars">
+                          ★ {repo.stargazers_count}
+                        </span>
+                      )}
+                      <span className="repository-updated">
+                        Updated on {new Date(repo.updated_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <button className="view-pulls-button">
+                      View Pull Requests
+                    </button>
+                  </div>
+                ))}
+              </div>
+              
+              {isLoadingMoreRepos && (
+                <div className="loading-more-indicator">
+                  <div className="loading-spinner"></div>
+                  <span>Loading more repositories...</span>
+                </div>
+              )}
+              
+              {!hasMoreRepos && repositories.length > 0 && (
+                <div className="no-more-repos">
+                  No more repositories to load
+                </div>
+              )}
+            </div>
+          )}
+          
+          {isDevelopment && (
+            <div className="dev-mode-indicator">
+              Development Mode Active
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -196,129 +387,7 @@ function App() {
         {!authenticated ? (
           <Auth onLogin={handleLogin} />
         ) : (
-          <div className="main-content">
-            <div className="user-panel">
-              <button onClick={handleLogout} className="logout-button">
-                Logout
-              </button>
-            </div>
-            
-            <div className="token-container">
-              <label htmlFor="github-token">GitHub Personal Access Token</label>
-              <div className="input-group">
-                <input
-                  id="github-token"
-                  type={isTokenVisible ? "text" : "password"}
-                  value={githubToken}
-                  onChange={handleTokenChange}
-                  className="token-input"
-                  placeholder="Enter your GitHub PAT"
-                  autoComplete="off"
-                />
-                <button 
-                  className="visibility-toggle" 
-                  onClick={toggleTokenVisibility}
-                  aria-label={isTokenVisible ? "Hide token" : "Show token"}
-                  type="button"
-                >
-                  {isTokenVisible ? "Hide" : "Show"}
-                </button>
-              </div>
-              <p className="token-info">
-                Your token is used to understand the PRs created by you.
-              </p>
-              
-              {isLoadingUser && (
-                <div className="loading-indicator">
-                  Loading GitHub user data...
-                </div>
-              )}
-              
-              {userError && (
-                <div className="error-message">
-                  {userError}
-                </div>
-              )}
-              
-              {githubUser && (
-                <div className="github-user-profile">
-                  <div className="user-avatar">
-                    <img src={githubUser.avatar_url} alt={`${githubUser.login}'s avatar`} />
-                  </div>
-                  <div className="user-info">
-                    <h3>{githubUser.name || githubUser.login}</h3>
-                    <p>@{githubUser.login}</p>
-                  </div>
-                </div>
-              )}
-              
-              {isLoadingRepos && (
-                <div className="loading-indicator">
-                  Loading GitHub repositories...
-                </div>
-              )}
-              
-              {reposError && (
-                <div className="error-message">
-                  {reposError}
-                </div>
-              )}
-              
-              {repositories.length > 0 && (
-                <div className="repositories-container" ref={reposContainerRef}>
-                  <h3 className="repositories-title">Your Repositories</h3>
-                  <div className="repositories-list">
-                    {repositories.map(repo => (
-                      <div key={repo.id} className="repository-card">
-                        <div className="repository-header">
-                          <h4 className="repository-name">{repo.name}</h4>
-                          <span className="repository-visibility">{repo.visibility}</span>
-                        </div>
-                        <p className="repository-description">
-                          {repo.description || "No description provided"}
-                        </p>
-                        <div className="repository-meta">
-                          {repo.language && (
-                            <span className="repository-language">
-                              <span className="language-dot" style={{ background: getLanguageColor(repo.language) }}></span>
-                              {repo.language}
-                            </span>
-                          )}
-                          {repo.stargazers_count > 0 && (
-                            <span className="repository-stars">
-                              ★ {repo.stargazers_count}
-                            </span>
-                          )}
-                          <span className="repository-updated">
-                            Updated on {new Date(repo.updated_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {isLoadingMoreRepos && (
-                    <div className="loading-more-indicator">
-                      <div className="loading-spinner"></div>
-                      <span>Loading more repositories...</span>
-                    </div>
-                  )}
-                  
-                  {!hasMoreRepos && repositories.length > 0 && (
-                    <div className="no-more-repos">
-                      No more repositories to load
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {isDevelopment && (
-                <div className="dev-mode-indicator">
-                  Development Mode Active
-                </div>
-              )}
-            </div>
-          </div>
+          renderCurrentView()
         )}
       </header>
     </div>

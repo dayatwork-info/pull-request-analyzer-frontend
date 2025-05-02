@@ -31,6 +31,32 @@ interface GitHubRepository {
   created_at: string;
   updated_at: string;
   pushed_at: string;
+  owner: {
+    login: string;
+  };
+}
+
+interface GitHubPullRequest {
+  id: number;
+  number: number;
+  title: string;
+  state: string;
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+  merged_at: string | null;
+  user: {
+    login: string;
+    avatar_url: string;
+  };
+  body: string;
+  draft: boolean;
+  labels: {
+    id: number;
+    name: string;
+    color: string;
+  }[];
 }
 
 interface LoginResponse {
@@ -297,6 +323,31 @@ export const fetchGitHubRepositories = async (token: string, page: number = 1): 
     return await response.json();
   } catch (error) {
     console.error('Error fetching GitHub repositories:', error);
+    throw error;
+  }
+};
+
+export const fetchGitHubRepoPulls = async (
+  token: string, 
+  owner: string, 
+  repo: string
+): Promise<GitHubPullRequest[]> => {
+  try {
+    const response = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repo}/pulls`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch pull requests for ${owner}/${repo}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Error fetching pull requests for ${owner}/${repo}:`, error);
     throw error;
   }
 };
