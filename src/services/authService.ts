@@ -352,6 +352,69 @@ export const fetchGitHubRepoPulls = async (
   }
 };
 
+export interface PullRequestDetail {
+  id: number;
+  number: number;
+  title: string;
+  state: string;
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+  merged_at: string | null;
+  user: {
+    login: string;
+    avatar_url: string;
+  };
+  body: string;
+  draft: boolean;
+  labels: {
+    id: number;
+    name: string;
+    color: string;
+  }[];
+  files_summary: {
+    total_count: number;
+    changes: number;
+    additions: number;
+    deletions: number;
+    files: {
+      filename: string;
+      status: string;
+      additions: number;
+      deletions: number;
+      changes: number;
+    }[];
+  };
+  prSummary?: string;
+}
+
+export const fetchPullRequestDetail = async (
+  token: string,
+  owner: string,
+  repo: string,
+  pullNumber: number
+): Promise<PullRequestDetail> => {
+  try {
+    const response = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repo}/pulls/${pullNumber}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch pull request details for ${owner}/${repo}#${pullNumber}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Error fetching pull request details for ${owner}/${repo}#${pullNumber}:`, error);
+    throw error;
+  }
+};
+
 // Helper for direct developer login bypass
 export const bypassLogin = async (): Promise<void> => {
   if (isDevelopment) {

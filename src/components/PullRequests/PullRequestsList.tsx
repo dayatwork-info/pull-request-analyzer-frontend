@@ -30,6 +30,7 @@ interface PullRequestsListProps {
   error: string | null;
   onBack: () => void;
   repoName: string;
+  onPullRequestClick: (pullNumber: number) => void;
 }
 
 const PullRequestsList: React.FC<PullRequestsListProps> = ({ 
@@ -37,7 +38,8 @@ const PullRequestsList: React.FC<PullRequestsListProps> = ({
   isLoading, 
   error, 
   onBack,
-  repoName
+  repoName,
+  onPullRequestClick
 }) => {
   // Get state label styling
   const getStateStyle = (state: string, merged: boolean): { className: string, label: string } => {
@@ -94,12 +96,15 @@ const PullRequestsList: React.FC<PullRequestsListProps> = ({
               const stateStyle = getStateStyle(pr.state, !!pr.merged_at);
               
               return (
-                <div key={pr.id} className="pr-item">
+                <div 
+                  key={pr.id} 
+                  className="pr-item"
+                  onClick={() => onPullRequestClick(pr.number)}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div className="pr-title-row">
                     <h3 className="pr-title">
-                      <a href={pr.html_url} target="_blank" rel="noopener noreferrer">
-                        #{pr.number} {pr.title}
-                      </a>
+                      #{pr.number} {pr.title}
                     </h3>
                     <span className={`pr-state ${stateStyle.className}`}>
                       {stateStyle.label}
