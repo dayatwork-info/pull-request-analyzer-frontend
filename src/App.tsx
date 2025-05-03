@@ -543,7 +543,7 @@ function App() {
     } else if (currentView === 'pullDetail' && selectedRepo && selectedPull) {
       return `PR #${selectedPull} - ${selectedRepo.owner}/${selectedRepo.name}`;
     }
-    return 'Day at Work - PR Explorer';
+    return 'Day at Work - Code Explorer';
   };
 
   // Render the current view based on state
@@ -556,6 +556,7 @@ function App() {
           error={pullDetailError}
           onBack={() => {}} // We're using the Navbar back button now
           currentUser={githubUser}
+          githubToken={githubToken}
         />
       );
     }
@@ -745,7 +746,7 @@ function App() {
       <main className="App-main">
         {!authenticated ? (
           <div className="auth-container">
-            <h1 className="app-title">Day at Work - PR Explorer</h1>
+            <h1 className="app-title">Day at Work - Code Explorer</h1>
             <Auth onLogin={handleLogin} />
           </div>
         ) : (
