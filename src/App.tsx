@@ -455,7 +455,7 @@ function App() {
         setPullDetailError(null);
         
         // Store PR summary in sessionStorage if it exists
-        if (pullDetailData && pullDetailData.prSummary) {
+        if (!skipSummary) {
           storePRSummaryInSession(
             selectedRepo.owner, 
             selectedRepo.name, 

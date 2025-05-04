@@ -25,6 +25,54 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
 }) => {
   const [addingToJournal, setAddingToJournal] = useState(false);
   const [journalMessage, setJournalMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
+  const [hasJournalEntry, setHasJournalEntry] = useState<boolean>(false);
+  const [journalIdFromApi, setJournalIdFromApi] = useState(null);
+
+  // Check if a journal entry already exists for this PR
+  React.useEffect(() => {
+    const checkJournalEntry = async () => {
+      if (pullRequest && githubToken) {
+        try {
+          // Create a key for this PR 
+          const prKey = `${pullRequest.html_url.split('/').slice(3, 5).join('_')}_${pullRequest.number}`;
+
+          // Make request to journal/ids endpoint to get all journal entries
+          const response = await fetchWithTokenRefresh(`http://localhost:3002/journal/by-pr/${prKey}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-GitHub-Token': githubToken
+            },
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch journal entries');
+          }
+          
+          const data = await response.json();
+          
+          if (data.found) {
+            setHasJournalEntry(true);
+            setJournalIdFromApi(data.journalId);
+          } else {
+            // Check if we have a journalId for this PR in session storage
+            const existingData = sessionStorage.getItem(prKey);
+            if (existingData) {
+              const summaryData = JSON.parse(existingData);
+              if (summaryData.journalId) {
+                setHasJournalEntry(true);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error checking for existing journal entry:', error);
+        }
+      }
+    };
+    
+    checkJournalEntry();
+  }, [pullRequest, githubToken]);
 
   // Format date
   const formatDate = (dateString: string): string => {
@@ -70,7 +118,8 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
         email,
         password,
         title: pullRequest.title,
-        content: pullRequest.prSummary || 'No summary available'
+        content: pullRequest.prSummary || 'No summary available',
+        prRef: `${pullRequest.html_url.split('/').slice(3, 5).join('_')}_${pullRequest.number}`
       };
       
       // Make request to journal/create endpoint using fetchWithTokenRefresh
@@ -94,7 +143,7 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
       if (data.journalId && pullRequest) {
         try {
           // Create a key for this PR and journal entry
-          const prKey = `pr_summary_${pullRequest.html_url.split('/').slice(3, 5).join('/')}_${pullRequest.number}`;
+          const prKey = `pr_summary_${pullRequest.html_url.split('/').slice(3, 5).join('_')}_${pullRequest.number}`;
           
           // Get existing PR summary data from session storage
           const existingData = sessionStorage.getItem(prKey);
@@ -106,6 +155,9 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
           
           // Save the updated data back to session storage
           sessionStorage.setItem(prKey, JSON.stringify(summaryData));
+          
+          // Set hasJournalEntry to true
+          setHasJournalEntry(true);
           
           console.log(`Journal ID ${data.journalId} stored for PR #${pullRequest.number}`);
         } catch (error) {
@@ -150,15 +202,21 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
         throw new Error('Credentials incomplete');
       }
       
-      // Get the journal ID from session storage
-      const prKey = `pr_summary_${pullRequest.html_url.split('/').slice(3, 5).join('/')}_${pullRequest.number}`;
-      const existingData = sessionStorage.getItem(prKey);
-      const summaryData = existingData ? JSON.parse(existingData) : {};
-      
-      if (!summaryData.journalId) {
-        throw new Error('No journal entry found for this PR. Please add it to your work journal first.');
+      let journalIdForRequest: string;
+      if (journalIdFromApi) {
+        journalIdForRequest = journalIdFromApi;
+      } else {
+        // Get the journal ID from session storage
+        const prKey = `pr_summary_${pullRequest.html_url.split('/').slice(3, 5).join('_')}_${pullRequest.number}`;
+        const existingData = sessionStorage.getItem(prKey);
+        const summaryData = existingData ? JSON.parse(existingData) : {};
+        
+        if (!summaryData.journalId) {
+          throw new Error('No journal entry found for this PR. Please add it to your work journal first.');
+        }
+       
+        journalIdForRequest = summaryData.journalId;
       }
-
       // Set temporary message
       setJournalMessage({
         text: 'Opening work journal...',
@@ -190,7 +248,7 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
           otherWindow.postMessage({ 
             email: decryptData.email, 
             password: decryptData.password, 
-            journalId: summaryData.journalId,
+            journalId: journalIdForRequest,
           }, 'http://localhost:8081');
         }
       }, 1000);
@@ -282,7 +340,7 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
             {/* Add to Work Journal button - only visible if current user is the author */}
             {isAuthor() && (
               <div className="pr-actions">
-                <button 
+                {!hasJournalEntry && <button 
                   className="add-to-journal-button" 
                   onClick={handleAddToWorkJournal}
                   disabled={addingToJournal}
@@ -299,6 +357,7 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
                     </>
                   )}
                 </button>
+                }
                 
                 {journalMessage && (
                   <div className={`journal-message ${journalMessage.type}`}>
@@ -306,13 +365,21 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
                   </div>
                 )}
 
-                <button 
-                  className="see-journal-button" 
-                  onClick={handleSeeWorkJournal}
-                >
-                  <span className="journal-icon">📖</span>
-                  See my work journal
-                </button>
+                {/* Show 'See my work journal' button if we have a journal entry or just added one */}
+                {(hasJournalEntry || (journalMessage && journalMessage.type === 'success')) && (
+                  <>
+                    <button 
+                      className="see-journal-button" 
+                      onClick={handleSeeWorkJournal}
+                    >
+                      <span className="journal-icon">📖</span>
+                      See my work journal
+                    </button>
+                    <div className="journal-helper-text">
+                      <small>You can also visit <a href="https://journal.dayatwork.info" target="_blank" rel="noopener noreferrer">journal.dayatwork.info</a> directly and log in with the same credentials you used for this application.</small>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
