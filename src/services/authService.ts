@@ -65,11 +65,6 @@ interface LoginResponse {
 }
 
 interface SignupResponse {
-  verificationToken: string;
-  message?: string;
-}
-
-interface VerifyResponse {
   accessToken: string;
   refreshToken: string;
   user?: User;
@@ -142,36 +137,6 @@ export const signup = async (email: string, password: string): Promise<SignupRes
       };
     }
 
-    return data;
-  } catch (error) {
-    throw error instanceof Error 
-      ? { message: error.message } 
-      : error as AuthError;
-  }
-};
-
-export const verifyAccount = async (token: string): Promise<VerifyResponse> => {
-
-  try {
-    const response = await fetch(`${API_URL}/verify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      credentials: 'include', // Include cookies for authentication
-      body: JSON.stringify({ token }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw {
-        message: data.message || 'Verification failed',
-        errors: data.errors,
-      };
-    }
-
     // Store tokens from the response
     if (data.accessToken) {
       setAccessToken(data.accessToken);
@@ -188,6 +153,7 @@ export const verifyAccount = async (token: string): Promise<VerifyResponse> => {
       : error as AuthError;
   }
 };
+
 
 /**
  * Token management functions
@@ -434,21 +400,22 @@ export interface PullRequestDetail {
     name: string;
     color: string;
   }[];
-  files_summary: {
-    total_count: number;
-    changes: number;
+  files: {
+    filename: string;
+    status: string;
     additions: number;
     deletions: number;
-    files: {
-      filename: string;
-      status: string;
-      additions: number;
-      deletions: number;
-      changes: number;
-    }[];
-  };
+    changes: number;
+  }[];
   prSummary?: string;
   contributors?: Contributor[];
+}
+
+export interface PullRequestFilesSummary {
+  total_count: number;
+  changes: number;
+  additions: number;
+  deletions: number;
 }
 
 export const fetchPullRequestDetail = async (
