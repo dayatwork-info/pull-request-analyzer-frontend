@@ -1,8 +1,5 @@
-const API_URL = 'http://localhost:3001/auth'; // Local authentication API endpoint
-const GITHUB_API_URL = 'http://localhost:3001/github'; // Local GitHub API endpoint
-
-// Development mode flag
-const isDevelopment = process.env.NODE_ENV === 'development';
+const API_URL = 'http://localhost:3002/auth'; // Local authentication API endpoint
+const GITHUB_API_URL = 'http://localhost:3002/github'; // Local GitHub API endpoint
 
 interface User {
   id: string;
@@ -62,6 +59,7 @@ interface GitHubPullRequest {
 interface LoginResponse {
   accessToken: string;
   refreshToken: string;
+  encryptedCredentials?: string;
   user?: User;
   message?: string;
 }
@@ -108,6 +106,11 @@ export const login = async (email: string, password: string): Promise<LoginRespo
     // Store tokens from the response
     setAccessToken(data.accessToken);
     setRefreshToken(data.refreshToken);
+    
+    // Store encrypted credentials if available
+    if (data.encryptedCredentials) {
+      setEncryptedCredentials(data.encryptedCredentials);
+    }
 
     return data;
   } catch (error) {
@@ -186,65 +189,6 @@ export const verifyAccount = async (token: string): Promise<VerifyResponse> => {
   }
 };
 
-// Development helper functions to simulate auth flows
-export const devModeLogin = (): Promise<LoginResponse> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const mockAccessToken = 'dev-access-token-' + Math.random().toString(36).substring(2, 15);
-      const mockRefreshToken = 'dev-refresh-token-' + Math.random().toString(36).substring(2, 15);
-      
-      setAccessToken(mockAccessToken);
-      setRefreshToken(mockRefreshToken);
-      
-      resolve({
-        accessToken: mockAccessToken,
-        refreshToken: mockRefreshToken,
-        user: {
-          id: 'dev-user-id',
-          email: 'dev@example.com',
-          name: 'Development User'
-        }
-      });
-    }, 500); // Simulate network delay
-  });
-};
-
-export const devModeSignup = (): Promise<SignupResponse> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const verificationToken = 'dev-verification-' + Math.random().toString(36).substring(2, 15);
-      
-      resolve({
-        verificationToken,
-        message: 'Verification token has been sent to your email'
-      });
-    }, 500); // Simulate network delay
-  });
-};
-
-export const devModeVerify = (): Promise<VerifyResponse> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const mockAccessToken = 'dev-access-token-' + Math.random().toString(36).substring(2, 15);
-      const mockRefreshToken = 'dev-refresh-token-' + Math.random().toString(36).substring(2, 15);
-      
-      setAccessToken(mockAccessToken);
-      setRefreshToken(mockRefreshToken);
-      
-      resolve({
-        accessToken: mockAccessToken,
-        refreshToken: mockRefreshToken,
-        user: {
-          id: 'dev-user-id',
-          email: 'dev@example.com',
-          name: 'Development User'
-        },
-        message: 'Account successfully verified'
-      });
-    }, 500); // Simulate network delay
-  });
-};
-
 /**
  * Token management functions
  * Using sessionStorage which clears when the browser tab is closed,
@@ -258,6 +202,10 @@ export const getRefreshToken = (): string | null => {
   return sessionStorage.getItem('refresh_token');
 };
 
+export const getEncryptedCredentials = (): string | null => {
+  return sessionStorage.getItem('encrypted_credentials');
+};
+
 export const setAccessToken = (token: string): void => {
   sessionStorage.setItem('access_token', token);
 };
@@ -266,12 +214,20 @@ export const setRefreshToken = (token: string): void => {
   sessionStorage.setItem('refresh_token', token);
 };
 
+export const setEncryptedCredentials = (credentials: object): void => {
+  sessionStorage.setItem('encrypted_credentials', JSON.stringify(credentials));
+};
+
 export const removeAccessToken = (): void => {
   sessionStorage.removeItem('access_token');
 };
 
 export const removeRefreshToken = (): void => {
   sessionStorage.removeItem('refresh_token');
+};
+
+export const removeEncryptedCredentials = (): void => {
+  sessionStorage.removeItem('encrypted_credentials');
 };
 
 export const isAuthenticated = (): boolean => {
@@ -332,6 +288,7 @@ export const clearSession = (): void => {
   // Clear all auth-related items from sessionStorage
   removeAccessToken();
   removeRefreshToken();
+  removeEncryptedCredentials();
   
   // Add any additional session items to clear here
 };
@@ -555,43 +512,3 @@ export const fetchRepoContributors = async (
   }
 };
 
-// Helper for direct developer login bypass
-export const bypassLogin = async (): Promise<void> => {
-  if (isDevelopment) {
-    try {
-      // Try to use the development endpoint for instant login
-      const response = await fetch(`${API_URL}/dev-login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        credentials: 'include',
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setAccessToken(data.accessToken);
-        setRefreshToken(data.refreshToken);
-        return;
-      }
-    } catch (error) {
-      console.log('Dev login endpoint not available, using mock tokens instead');
-    }
-    
-    // Use our devModeLogin to provide consistent dev tokens
-    try {
-      const loginData = await devModeLogin();
-      // Tokens are already set within devModeLogin
-      return;
-    } catch (error) {
-      console.error('Error using dev mode login, falling back to basic mock tokens');
-      
-      // Ultimate fallback if even the devModeLogin fails
-      const mockAccessToken = 'dev-access-token-' + Math.random().toString(36).substring(2, 15);
-      const mockRefreshToken = 'dev-refresh-token-' + Math.random().toString(36).substring(2, 15);
-      setAccessToken(mockAccessToken);
-      setRefreshToken(mockRefreshToken);
-    }
-  }
-};
