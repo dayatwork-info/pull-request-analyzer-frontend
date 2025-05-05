@@ -22,7 +22,8 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   // Development mode flag
   const isDevelopment = process.env.NODE_ENV === 'development';
 
-  const API_URL = 'http://localhost:3002/auth'; // Local authentication API endpoint
+  // Use environment variable for API URL
+  const API_URL = process.env.REACT_APP_AUTH_API_URL;
 
   const validateForm = (): boolean => {
     setError('');

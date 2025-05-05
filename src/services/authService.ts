@@ -1,5 +1,6 @@
-const API_URL = 'http://localhost:3002/auth'; // Local authentication API endpoint
-const GITHUB_API_URL = 'http://localhost:3002/github'; // Local GitHub API endpoint
+// Use environment variables for API endpoints
+const API_URL = process.env.REACT_APP_AUTH_API_URL;
+const GITHUB_API_URL = process.env.REACT_APP_GITHUB_API_URL;
 
 interface User {
   id: string;

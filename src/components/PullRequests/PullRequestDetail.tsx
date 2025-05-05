@@ -38,7 +38,7 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
           const prKey = `${pullRequest.html_url.split('/').slice(3, 5).join('_')}_${pullRequest.number}`;
 
           // Make request to journal/ids endpoint to get all journal entries
-          const response = await fetchWithTokenRefresh(`http://localhost:3002/journal/by-pr/${prKey}`, {
+          const response = await fetchWithTokenRefresh(`${process.env.REACT_APP_JOURNAL_API_URL}/by-pr/${prKey}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
@@ -124,7 +124,7 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
       };
       
       // Make request to journal/create endpoint using fetchWithTokenRefresh
-      const response = await fetchWithTokenRefresh('http://localhost:3002/journal/create', {
+      const response = await fetchWithTokenRefresh(`${process.env.REACT_APP_JOURNAL_API_URL}/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -225,7 +225,7 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
       });
       
       // Make request to auth/decrypt-credentials endpoint
-      const decryptResponse = await fetch('http://localhost:3002/auth/decrypt-credentials', {
+      const decryptResponse = await fetch(`${process.env.REACT_APP_AUTH_API_URL}/decrypt-credentials`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -241,7 +241,7 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
       const decryptData = await decryptResponse.json();
       
       // Open the work journal in a new tab
-      const otherWindow = window.open('http://localhost:8081', 'workJournalTab');
+      const otherWindow = window.open(process.env.REACT_APP_WORK_JOURNAL_URL, 'workJournalTab');
       
       // Wait for the page to load, then send the credentials and journal ID
       setTimeout(() => {
@@ -250,7 +250,7 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
             email: decryptData.email, 
             password: decryptData.password, 
             journalId: journalIdForRequest,
-          }, 'http://localhost:8081');
+          }, process.env.REACT_APP_WORK_JOURNAL_URL);
         }
       }, 1000);
       
@@ -363,7 +363,7 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
                       See my work journal
                     </button>
                     <div className="journal-helper-text">
-                      <small>You can also visit <a href="https://journal.dayatwork.info" target="_blank" rel="noopener noreferrer">journal.dayatwork.info</a> directly and log in with the same credentials you used for this application.</small>
+                      <small>You can also visit <a href={process.env.REACT_APP_WORK_JOURNAL_URL} target="_blank" rel="noopener noreferrer">{process.env.REACT_APP_WORK_JOURNAL_URL?.replace(/(^\w+:|^)\/\//, '')}</a> directly and log in with the same credentials you used for this application.</small>
                     </div>
                   </>
                 )}
