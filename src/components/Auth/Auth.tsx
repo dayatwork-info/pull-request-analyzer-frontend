@@ -3,7 +3,6 @@ import './Auth.css';
 import { 
   login as authLogin, 
   signup as authSignup, 
-  verifyAccount, 
   setAccessToken
 } from '../../services/authService';
 
@@ -11,16 +10,14 @@ interface AuthProps {
   onLogin: (authToken: string) => void;
 }
 
-type AuthScreen = 'login' | 'signup' | 'verify';
+type AuthScreen = 'login' | 'signup';
 
 const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [currentScreen, setCurrentScreen] = useState<AuthScreen>('login');
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const [verificationToken, setVerificationToken] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
-  const [signupToken, setSignupToken] = useState<string>('');
   
   // Development mode flag
   const isDevelopment = process.env.NODE_ENV === 'development';
@@ -29,14 +26,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
   const validateForm = (): boolean => {
     setError('');
-    
-    if (currentScreen === 'verify') {
-      if (!verificationToken) {
-        setError('Verification token is required');
-        return false;
-      }
-      return true;
-    }
     
     if (!email || !password) {
       setError('Email and password are required');
@@ -60,18 +49,10 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         onLogin(data.accessToken);
       } else if (currentScreen === 'signup') {
         const data = await authSignup(email, password);
-        if (data.verificationToken) {
-          setSignupToken(data.verificationToken);
-          setCurrentScreen('verify');
-        } else {
-          setError('No verification token received');
-        }
-      } else if (currentScreen === 'verify') {
-        const data = await verifyAccount(verificationToken);
         if (data.accessToken) {
           onLogin(data.accessToken);
         } else {
-          setError('No authentication token received');
+          setError('Signup failed');
         }
       }
     } catch (err) {
@@ -179,56 +160,12 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     </>
   );
 
-  const renderVerificationForm = () => (
-    <>
-      <p className="verification-message">
-        We've sent a verification token to your email. Please enter it below to complete your signup.
-      </p>
-      
-      {signupToken && isDevelopment && (
-        <div className="dev-token-display">
-          <p className="dev-token-label">Development Token (for testing):</p>
-          <p className="dev-token-value">{signupToken}</p>
-        </div>
-      )}
-      
-      <div className="form-group">
-        <label htmlFor="verificationToken">Verification Token</label>
-        <input
-          id="verificationToken"
-          type="text"
-          value={verificationToken}
-          onChange={(e) => setVerificationToken(e.target.value)}
-          placeholder="Enter verification token"
-          disabled={loading}
-          required
-        />
-      </div>
-      
-      <button type="submit" className="submit-button" disabled={loading}>
-        {loading ? 'Verifying...' : 'Verify Account'}
-      </button>
-      
-      <div className="auth-switch">
-        <button 
-          onClick={() => handleScreenChange('login')}
-          className="switch-button"
-          disabled={loading}
-          type="button"
-        >
-          Back to Login
-        </button>
-      </div>
-    </>
-  );
-
   return (
     <div className="auth-container">
       <div className="auth-card">
         <h2>
           {currentScreen === 'login' && 'Login'}
           {currentScreen === 'signup' && 'Sign Up'}
-          {currentScreen === 'verify' && 'Verify Account'}
         </h2>
         
         {error && <div className="error-message">{error}</div>}
@@ -236,7 +173,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         <form onSubmit={handleSubmit}>
           {currentScreen === 'login' && renderLoginForm()}
           {currentScreen === 'signup' && renderSignupForm()}
-          {currentScreen === 'verify' && renderVerificationForm()}
         </form>
       </div>
     </div>

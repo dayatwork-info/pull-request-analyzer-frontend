@@ -4,6 +4,7 @@ import {
   getEncryptedCredentials,
   fetchWithTokenRefresh
 } from '../../services/authService';
+import PullRequestFilesSummary from './PullRequestFilesSummary';
 import './PullRequestDetail.css';
 
 interface PullRequestDetailProps {
@@ -273,21 +274,7 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
       : { className: 'pr-state-closed', label: 'Closed' };
   };
 
-  // Helper to get status colors for file changes
-  const getFileStatusStyle = (status: string): string => {
-    switch (status) {
-      case 'added':
-        return 'file-status-added';
-      case 'modified':
-        return 'file-status-modified';
-      case 'removed':
-        return 'file-status-removed';
-      case 'renamed':
-        return 'file-status-renamed';
-      default:
-        return '';
-    }
-  };
+  // Status styles moved to PullRequestFilesSummary component
 
   return (
     <div className="pull-request-detail-container">
@@ -416,47 +403,9 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
             </div>
           )}
 
-          {pullRequest.files_summary && (
-            <div className="pr-files-summary">
-              <h3>Files Changed</h3>
-              <div className="pr-summary-stats">
-                <div className="stat-item">
-                  <span className="stat-label">Files</span>
-                  <span className="stat-value">{pullRequest.files_summary.total_count}</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">Changes</span>
-                  <span className="stat-value">{pullRequest.files_summary.changes}</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">Additions</span>
-                  <span className="stat-value additions">{pullRequest.files_summary.additions}</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">Deletions</span>
-                  <span className="stat-value deletions">{pullRequest.files_summary.deletions}</span>
-                </div>
-              </div>
-
-              <div className="pr-files-list">
-                {pullRequest.files_summary.files && pullRequest.files_summary.files.length > 0 ? (
-                  pullRequest.files_summary.files.map((file, index) => (
-                    <div key={index} className="pr-file-item">
-                      <span className={`file-status ${getFileStatusStyle(file.status)}`}>
-                        {file.status}
-                      </span>
-                      <span className="file-name">{file.filename}</span>
-                      <div className="file-changes">
-                        <span className="additions">+{file.additions}</span>
-                        <span className="deletions">-{file.deletions}</span>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="no-files-message">No file changes available</div>
-                )}
-              </div>
-            </div>
+          {/* Use the new PullRequestFilesSummary component */}
+          {pullRequest.files && (
+            <PullRequestFilesSummary files={pullRequest.files} />
           )}
         </div>
       )}
