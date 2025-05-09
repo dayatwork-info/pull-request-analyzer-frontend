@@ -62,7 +62,7 @@ function App() {
   const [isLoadingPulls, setIsLoadingPulls] = useState<boolean>(false);
   const [isLoadingMorePulls, setIsLoadingMorePulls] = useState<boolean>(false);
   const [pullsError, setPullsError] = useState<string | null>(null);
-  const [currentPullsPage, setCurrentPullsPage] = useState<number>(1);
+  const [, setCurrentPullsPage] = useState<number>(1);
   const [hasMorePulls, setHasMorePulls] = useState<boolean>(true);
   const [filteredPullRequests, setFilteredPullRequests] = useState<PullRequest[]>([]);
   const [contributors, setContributors] = useState<Contributor[]>([]);
@@ -78,8 +78,8 @@ function App() {
   // Ref for the repositories container for infinite scrolling
   const reposContainerRef = React.useRef<HTMLDivElement>(null);
   
-  // Development mode flag
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  // Development mode flag - keep for future use
+  // const isDevelopment = process.env.NODE_ENV === 'development';
 
   useEffect(() => {
     // Check if user is already authenticated
@@ -634,9 +634,17 @@ function App() {
               {isTokenVisible ? "Hide" : "Show"}
             </button>
           </div>
-          <p className="token-info">
-            Your token is used to understand the PRs created.
-          </p>
+          {!githubToken && (
+            <div className="token-info-container">
+              <p className="token-info">
+                Your token is used to understand the PRs created. For GitHub fine-grained personal access tokens, please ensure:
+              </p>
+              <ul className="token-permissions">
+                <li>Read access to email addresses under user permissions</li>
+                <li>Read access to metadata and pull requests under repository permissions</li>
+              </ul>
+            </div>
+          )}
           
           {isLoadingUser && (
             <div className="loading-indicator">
@@ -748,6 +756,11 @@ function App() {
           <div className="auth-container">
             <h1 className="app-title">Day at Work - Code Explorer</h1>
             <Auth onLogin={handleLogin} />
+            <div className="github-links">
+              <p>Check out our code:</p>
+              <a href="https://github.com/dayatwork-info/pull-request-analyzer-backend" target="_blank" rel="noopener noreferrer">Backend Repository</a>
+              <a href="https://github.com/dayatwork-info/pull-request-analyzer-frontend" target="_blank" rel="noopener noreferrer">Frontend Repository</a>
+            </div>
           </div>
         ) : (
           renderCurrentView()

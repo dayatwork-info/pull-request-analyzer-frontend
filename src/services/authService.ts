@@ -72,10 +72,11 @@ interface SignupResponse {
   message?: string;
 }
 
-interface AuthError {
-  message: string;
-  errors?: string[];
-}
+// AuthError interface removed to fix linting error
+// interface AuthError {
+//   message: string;
+//   errors?: string[];
+// }
 
 export const login = async (email: string, password: string): Promise<LoginResponse> => {
 
@@ -93,10 +94,7 @@ export const login = async (email: string, password: string): Promise<LoginRespo
     const data = await response.json();
 
     if (!response.ok) {
-      throw {
-        message: data.message || 'Login failed',
-        errors: data.errors,
-      };
+      throw new Error(data.message || 'Login failed');
     }
 
     // Store tokens from the response
@@ -110,9 +108,11 @@ export const login = async (email: string, password: string): Promise<LoginRespo
 
     return data;
   } catch (error) {
-    throw error instanceof Error 
-      ? { message: error.message } 
-      : error as AuthError;
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Login failed');
+    }
   }
 };
 
@@ -132,10 +132,7 @@ export const signup = async (email: string, password: string): Promise<SignupRes
     const data = await response.json();
 
     if (!response.ok) {
-      throw {
-        message: data.message || 'Signup failed',
-        errors: data.errors,
-      };
+      throw new Error(data.message || 'Signup failed');
     }
 
     // Store tokens from the response
@@ -149,9 +146,11 @@ export const signup = async (email: string, password: string): Promise<SignupRes
 
     return data;
   } catch (error) {
-    throw error instanceof Error 
-      ? { message: error.message } 
-      : error as AuthError;
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Signup failed');
+    }
   }
 };
 
