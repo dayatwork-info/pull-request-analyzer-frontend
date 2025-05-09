@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import './Auth.css';
 import { 
   login as authLogin, 
-  signup as authSignup, 
-  setAccessToken
+  signup as authSignup
 } from '../../services/authService';
 
 interface AuthProps {
@@ -19,11 +18,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   
-  // Development mode flag
-  const isDevelopment = process.env.NODE_ENV === 'development';
-
-  const API_URL = 'http://localhost:3002/auth'; // Local authentication API endpoint
-
   const validateForm = (): boolean => {
     setError('');
     
@@ -34,7 +28,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     
     return true;
   };
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
