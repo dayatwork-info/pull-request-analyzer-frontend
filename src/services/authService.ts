@@ -301,6 +301,35 @@ export const fetchWithTokenRefresh = async (
 };
 
 /**
+ * Fetch PR summaries for a GitHub user
+ */
+export interface PRSummariesResponse {
+  found: boolean;
+  summaries?: number;
+}
+
+export const fetchUserPRSummaries = async (githubToken: string): Promise<PRSummariesResponse> => {
+  try {
+    const response = await fetchWithTokenRefresh(`${GITHUB_API_URL}/user/pr-summaries`, {
+      method: 'GET',
+      headers: {
+        'X-GitHub-Token': githubToken,
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch PR summaries');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching PR summaries:', error);
+    throw error;
+  }
+};
+
+/**
  * GitHub API related functions
  */
 export const fetchGitHubUser = async (githubToken: string): Promise<GitHubUser> => {

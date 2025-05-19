@@ -72,6 +72,8 @@ describe('PullRequestsList Component', () => {
     error: null,
     onBack: jest.fn(),
     repoName: 'test-repo',
+    ownerName: 'test-owner',
+    githubToken: 'test-github-token',
     onPullRequestClick: jest.fn(),
     onLoadMore: jest.fn(),
     hasMorePulls: false,
@@ -272,5 +274,98 @@ describe('PullRequestsList Component', () => {
     fireEvent.click(firstPR!);
     
     expect(baseProps.onPullRequestClick).toHaveBeenCalledWith(101);
+  });
+  
+  // Test Generate Summary functionality
+  it('shows generate summary button', () => {
+    render(<PullRequestsList {...baseProps} />);
+    
+    expect(screen.getByRole('button', { name: 'Generate PR Summaries & add to Work Journal' })).toBeInTheDocument();
+    expect(screen.getByText('We will create summary for all the PRs and add your summaries to your work journal.')).toBeInTheDocument();
+  });
+  
+  it('shows see work journal button after summary generation success', async () => {
+    // Mock global fetch and environment variables
+    global.fetch = jest.fn().mockImplementation(() => 
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({})
+      })
+    ) as jest.Mock;
+    
+    process.env.REACT_APP_WORK_JOURNAL_URL = 'https://journal.example.com';
+    
+    // Mock fetchWithTokenRefresh
+    jest.mock('../../services/authService', () => ({
+      ...jest.requireActual('../../services/authService'),
+      fetchWithTokenRefresh: jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({})
+      }),
+      getEncryptedCredentials: jest.fn().mockReturnValue(JSON.stringify({
+        email: 'test@example.com',
+        password: 'password123'
+      })),
+    }));
+    
+    // Render with showSeeWorkJournal=true to simulate successful PR generation
+    const props = {
+      ...baseProps,
+      showSeeWorkJournal: true // Simulate the state after successful generation
+    };
+    
+    render(<PullRequestsList {...props} />);
+    
+    // Check if "See my work journal" button appears
+    const journalButton = screen.getByRole('button', { name: /See my work journal/i });
+    expect(journalButton).toBeInTheDocument();
+    
+    // Check if the helper text is displayed
+    expect(screen.getByText(/You can also visit/i)).toBeInTheDocument();
+    expect(screen.getByText('journal.example.com')).toBeInTheDocument();
+  });
+  
+  it('displays a message when journal button is clicked', async () => {
+    // Mock global fetch and window.open
+    global.fetch = jest.fn().mockImplementation(() => 
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({})
+      })
+    ) as jest.Mock;
+    
+    // Mock window.open
+    const mockOpen = jest.fn();
+    window.open = mockOpen;
+    
+    process.env.REACT_APP_WORK_JOURNAL_URL = 'https://journal.example.com';
+    
+    // Mock getEncryptedCredentials
+    const getEncryptedCredentials = jest.requireActual('../../services/authService').getEncryptedCredentials;
+    jest.mock('../../services/authService', () => ({
+      ...jest.requireActual('../../services/authService'),
+      getEncryptedCredentials: jest.fn().mockReturnValue(JSON.stringify({
+        email: 'test@example.com',
+        password: 'password123'
+      }))
+    }));
+    
+    // Render with showSeeWorkJournal=true
+    const props = {
+      ...baseProps,
+      showSeeWorkJournal: true
+    };
+    
+    render(<PullRequestsList {...props} />);
+    
+    // Find the journal button
+    const journalButton = screen.getByRole('button', { name: /See my work journal/i });
+    expect(journalButton).toBeInTheDocument();
+    
+    // Click the journal button
+    fireEvent.click(journalButton);
+    
+    // Check if the "Opening work journal..." message is displayed
+    expect(screen.getByText('Opening work journal...')).toBeInTheDocument();
   });
 });
