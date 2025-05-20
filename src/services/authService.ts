@@ -481,27 +481,38 @@ export const fetchPullRequestDetail = async (
 };
 
 /**
- * Fetch contributors for a specific repository
+ * Fetch contributors for a specific repository with pagination support
  */
 export const fetchRepoContributors = async (
   githubToken: string,
   owner: string,
-  repo: string
-): Promise<{contributors: Contributor[]}> => {
+  repo: string,
+  page: number = 1,
+  perPage: number = 30
+): Promise<{contributors: Contributor[]; hasMore: boolean}> => {
   try {
-    const response = await fetchWithTokenRefresh(`${GITHUB_API_URL}/repos/${owner}/${repo}/contributors`, {
-      method: 'GET',
-      headers: {
-        'X-GitHub-Token': githubToken,
-        'Accept': 'application/json',
-      },
-    });
+    const response = await fetchWithTokenRefresh(
+      `${GITHUB_API_URL}/repos/${owner}/${repo}/contributors?page=${page}&per_page=${perPage}`, 
+      {
+        method: 'GET',
+        headers: {
+          'X-GitHub-Token': githubToken,
+          'Accept': 'application/json',
+        },
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to fetch contributors for ${owner}/${repo}`);
     }
 
-    return await response.json();
+    const contributors = await response.json();
+    const hasMore = contributors.contributors && contributors.contributors.length === perPage;
+
+    return { 
+      ...contributors,
+      hasMore 
+    };
   } catch (error) {
     console.error(`Error fetching contributors for ${owner}/${repo}:`, error);
     throw error;

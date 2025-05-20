@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import RepositoryContributors from './RepositoryContributors';
 import { Contributor } from '../../services/authService';
 
@@ -31,8 +31,30 @@ describe('RepositoryContributors Component', () => {
     contributors: null as Contributor[] | null | undefined,
     isLoading: false,
     repoName: 'test-repo',
-    owner: 'test-owner'
+    owner: 'test-owner',
+    githubToken: 'test-token',
+    onLoadMore: jest.fn(),
+    hasMoreContributors: true,
+    isLoadingMore: false
   };
+
+  // Reset mocks before each test
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Create a mock implementation of Element.prototype.scrollHeight and other properties
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+      configurable: true,
+      get: function() { return 1000; }
+    });
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+      configurable: true,
+      get: function() { return 500; }
+    });
+    Object.defineProperty(HTMLElement.prototype, 'scrollTop', {
+      configurable: true,
+      get: function() { return 450; }
+    });
+  });
 
   // Test rendering with contributors
   it('renders the component with proper heading', () => {
@@ -153,5 +175,101 @@ describe('RepositoryContributors Component', () => {
     render(<RepositoryContributors {...baseProps} contributors={multiContributor} />);
     
     expect(screen.getByText('2 contributions')).toBeInTheDocument();
+  });
+
+  // Test pagination functionality
+  it('shows loading more indicator when fetching more contributors', () => {
+    render(
+      <RepositoryContributors 
+        {...baseProps} 
+        contributors={mockContributors}
+        isLoadingMore={true}
+      />
+    );
+    
+    expect(screen.getByText('Loading more contributors...')).toBeInTheDocument();
+  });
+
+  it('shows no more contributors message when hasMoreContributors is false', () => {
+    render(
+      <RepositoryContributors 
+        {...baseProps} 
+        contributors={mockContributors}
+        hasMoreContributors={false}
+      />
+    );
+    
+    expect(screen.getByText('No more contributors to display')).toBeInTheDocument();
+  });
+
+  it('calls onLoadMore when scrolled near bottom', async () => {
+    const mockOnLoadMore = jest.fn();
+    
+    render(
+      <RepositoryContributors 
+        {...baseProps} 
+        contributors={mockContributors}
+        onLoadMore={mockOnLoadMore}
+      />
+    );
+    
+    // Get container element and simulate scroll event
+    const container = screen.getByText('user3').closest('.contributors-list-container');
+    if (container) {
+      fireEvent.scroll(container);
+      
+      // Wait for the scroll event to trigger the callback
+      await waitFor(() => {
+        expect(mockOnLoadMore).toHaveBeenCalledWith(2); // Page 2
+      });
+    }
+  });
+
+  it('does not call onLoadMore when hasMoreContributors is false', async () => {
+    const mockOnLoadMore = jest.fn();
+    
+    render(
+      <RepositoryContributors 
+        {...baseProps} 
+        contributors={mockContributors}
+        onLoadMore={mockOnLoadMore}
+        hasMoreContributors={false}
+      />
+    );
+    
+    // Get container element and simulate scroll event
+    const container = screen.getByText('user3').closest('.contributors-list-container');
+    if (container) {
+      fireEvent.scroll(container);
+      
+      // Wait a bit to make sure the callback isn't called
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      expect(mockOnLoadMore).not.toHaveBeenCalled();
+    }
+  });
+
+  it('does not call onLoadMore when isLoadingMore is true', async () => {
+    const mockOnLoadMore = jest.fn();
+    
+    render(
+      <RepositoryContributors 
+        {...baseProps} 
+        contributors={mockContributors}
+        onLoadMore={mockOnLoadMore}
+        isLoadingMore={true}
+      />
+    );
+    
+    // Get container element and simulate scroll event
+    const container = screen.getByText('user3').closest('.contributors-list-container');
+    if (container) {
+      fireEvent.scroll(container);
+      
+      // Wait a bit to make sure the callback isn't called
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      expect(mockOnLoadMore).not.toHaveBeenCalled();
+    }
   });
 });
