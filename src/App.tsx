@@ -56,6 +56,9 @@ function App() {
   const [hasMoreRepos, setHasMoreRepos] = useState<boolean>(true);
   const [repoContributors, setRepoContributors] = useState<Contributor[] | null>(null);
   const [isLoadingRepoContributors, setIsLoadingRepoContributors] = useState<boolean>(false);
+  const [hasMoreContributors, setHasMoreContributors] = useState<boolean>(true);
+  const [isLoadingMoreContributors, setIsLoadingMoreContributors] = useState<boolean>(false);
+  const [contributorsPage, setContributorsPage] = useState<number>(1);
   const [prSummaries, setPRSummaries] = useState<PRSummariesResponse | null>(null);
   const [isLoadingPRSummaries, setIsLoadingPRSummaries] = useState<boolean>(false);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(false);
@@ -268,22 +271,55 @@ function App() {
   const fetchRepositoryContributors = (owner: string, repoName: string) => {
     setIsLoadingRepoContributors(true);
     setRepoContributors(null);
+    setHasMoreContributors(true);
+    setContributorsPage(1);
     
-    fetchRepoContributors(githubToken, owner, repoName)
+    fetchRepoContributors(githubToken, owner, repoName, 1)
       .then(contributorsData => {
         if (contributorsData && 'contributors' in contributorsData) {
           setRepoContributors(contributorsData.contributors);
+          setHasMoreContributors(contributorsData.hasMore);
         } else {
           setRepoContributors([]);
+          setHasMoreContributors(false);
           console.warn('Contributors data is missing or invalid:', contributorsData);
         }
       })
       .catch(error => {
         console.error(`Error fetching contributors for ${owner}/${repoName}:`, error);
         setRepoContributors([]);
+        setHasMoreContributors(false);
       })
       .finally(() => {
         setIsLoadingRepoContributors(false);
+      });
+  };
+  
+  // Function to load more contributors with pagination
+  const loadMoreContributors = (page: number) => {
+    if (!selectedRepo || !githubToken || isLoadingMoreContributors || !hasMoreContributors) return;
+    
+    setIsLoadingMoreContributors(true);
+    
+    fetchRepoContributors(githubToken, selectedRepo.owner, selectedRepo.name, page)
+      .then(contributorsData => {
+        if (contributorsData && contributorsData.contributors && contributorsData.contributors.length > 0) {
+          setRepoContributors(prevContributors => {
+            if (!prevContributors) return contributorsData.contributors;
+            return [...prevContributors, ...contributorsData.contributors];
+          });
+          setHasMoreContributors(contributorsData.hasMore);
+          setContributorsPage(page);
+        } else {
+          setHasMoreContributors(false);
+        }
+      })
+      .catch(error => {
+        console.error(`Error fetching more contributors for ${selectedRepo.owner}/${selectedRepo.name}:`, error);
+        // Don't set error state here to avoid disrupting the user experience
+      })
+      .finally(() => {
+        setIsLoadingMoreContributors(false);
       });
   };
   
@@ -410,6 +446,10 @@ function App() {
     setCurrentView('repos');
     // Clear repository-specific data
     setRepoContributors(null);
+    setIsLoadingRepoContributors(false);
+    setHasMoreContributors(true);
+    setIsLoadingMoreContributors(false);
+    setContributorsPage(1);
     setContributors([]);
     setSelectedContributor(null);
     setPullRequests([]);
@@ -759,6 +799,10 @@ function App() {
               isLoading={isLoadingRepoContributors}
               repoName={selectedRepo.name}
               owner={selectedRepo.owner}
+              githubToken={githubToken}
+              onLoadMore={loadMoreContributors}
+              hasMoreContributors={hasMoreContributors}
+              isLoadingMore={isLoadingMoreContributors}
             />
           )}
         </div>
