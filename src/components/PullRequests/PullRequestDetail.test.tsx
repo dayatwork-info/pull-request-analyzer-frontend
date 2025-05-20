@@ -243,7 +243,7 @@ describe('PullRequestDetail Component', () => {
     
     // Verify the correct data was sent in the API call
     expect(authService.fetchWithTokenRefresh).toHaveBeenCalledWith(
-      'http://localhost:3002/journal/create',
+      'http://localhost:3002/ceb/journal/create',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
@@ -315,14 +315,6 @@ describe('PullRequestDetail Component', () => {
       json: async () => ({ found: true, journalId: 'existing-journal-id' })
     });
     
-    // Mock the fetch response for decrypt-credentials
-    global.fetch = jest.fn().mockImplementation(() => 
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ email: 'decrypted-email', password: 'decrypted-password' })
-      }) as Promise<Response>
-    );
-    
     render(
       <PullRequestDetail 
         {...baseProps} 
@@ -342,8 +334,8 @@ describe('PullRequestDetail Component', () => {
     
     // Verify the correct data was sent in the API call to decrypt credentials
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:3002/auth/decrypt-credentials',
+      expect(authService.fetchWithTokenRefresh).toHaveBeenCalledWith(
+        'http://localhost:3002/ceb/auth/decrypt-credentials',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({

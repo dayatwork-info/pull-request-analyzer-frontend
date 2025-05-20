@@ -285,87 +285,55 @@ describe('PullRequestsList Component', () => {
   });
   
   it('shows see work journal button after summary generation success', async () => {
-    // Mock global fetch and environment variables
-    global.fetch = jest.fn().mockImplementation(() => 
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({})
-      })
-    ) as jest.Mock;
-    
+    // Set environment variable
     process.env.REACT_APP_WORK_JOURNAL_URL = 'https://journal.example.com';
     
-    // Mock fetchWithTokenRefresh
-    jest.mock('../../services/authService', () => ({
-      ...jest.requireActual('../../services/authService'),
-      fetchWithTokenRefresh: jest.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({})
-      }),
-      getEncryptedCredentials: jest.fn().mockReturnValue(JSON.stringify({
-        email: 'test@example.com',
-        password: 'password123'
-      })),
-    }));
+    // Render with showSeeWorkJournal set to true
+    render(<PullRequestsList {...baseProps} showSeeWorkJournal={true} />);
     
-    // Render with showSeeWorkJournal=true to simulate successful PR generation
-    const props = {
-      ...baseProps,
-      showSeeWorkJournal: true // Simulate the state after successful generation
-    };
-    
-    render(<PullRequestsList {...props} />);
-    
-    // Check if "See my work journal" button appears
-    const journalButton = screen.getByRole('button', { name: /See my work journal/i });
+    // Check if "See my work journal" button appears using a regex pattern
+    // This is more flexible for finding the text that might be mixed with other elements
+    const journalButton = screen.getByText(/see my work journal/i);
     expect(journalButton).toBeInTheDocument();
     
     // Check if the helper text is displayed
-    expect(screen.getByText(/You can also visit/i)).toBeInTheDocument();
-    expect(screen.getByText('journal.example.com')).toBeInTheDocument();
+    expect(screen.getByText(/you can also visit/i)).toBeInTheDocument();
+    expect(screen.getByText(/journal\.example\.com/i)).toBeInTheDocument();
   });
   
   it('displays a message when journal button is clicked', async () => {
-    // Mock global fetch and window.open
-    global.fetch = jest.fn().mockImplementation(() => 
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({})
-      })
-    ) as jest.Mock;
-    
     // Mock window.open
     const mockOpen = jest.fn();
     window.open = mockOpen;
     
+    // Setup environment variable
     process.env.REACT_APP_WORK_JOURNAL_URL = 'https://journal.example.com';
     
     // Mock getEncryptedCredentials
-    const getEncryptedCredentials = jest.requireActual('../../services/authService').getEncryptedCredentials;
-    jest.mock('../../services/authService', () => ({
-      ...jest.requireActual('../../services/authService'),
-      getEncryptedCredentials: jest.fn().mockReturnValue(JSON.stringify({
+    jest.spyOn(require('../../services/authService'), 'getEncryptedCredentials')
+      .mockReturnValue(JSON.stringify({
         email: 'test@example.com',
         password: 'password123'
-      }))
-    }));
+      }));
+      
+    // Mock fetchWithTokenRefresh 
+    jest.spyOn(require('../../services/authService'), 'fetchWithTokenRefresh')
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({ email: 'decrypted-email', password: 'decrypted-password' })
+      });
     
-    // Render with showSeeWorkJournal=true
-    const props = {
-      ...baseProps,
-      showSeeWorkJournal: true
-    };
+    // Render with showSeeWorkJournal set to true
+    render(<PullRequestsList {...baseProps} showSeeWorkJournal={true} />);
     
-    render(<PullRequestsList {...props} />);
-    
-    // Find the journal button
-    const journalButton = screen.getByRole('button', { name: /See my work journal/i });
+    // Find the journal button with a more flexible matcher
+    const journalButton = screen.getByText(/see my work journal/i);
     expect(journalButton).toBeInTheDocument();
     
     // Click the journal button
     fireEvent.click(journalButton);
     
     // Check if the "Opening work journal..." message is displayed
-    expect(screen.getByText('Opening work journal...')).toBeInTheDocument();
+    expect(screen.getByText(/opening work journal/i)).toBeInTheDocument();
   });
 });

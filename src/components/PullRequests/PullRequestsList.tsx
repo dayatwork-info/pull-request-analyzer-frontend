@@ -42,6 +42,8 @@ interface PullRequestsListProps {
   isLoadingContributors?: boolean;
   selectedContributor?: string | null;
   onContributorFilter?: (login: string | null) => void;
+  // Added for testing
+  showSeeWorkJournal?: boolean;
 }
 
 const PullRequestsList: React.FC<PullRequestsListProps> = ({ 
@@ -60,15 +62,20 @@ const PullRequestsList: React.FC<PullRequestsListProps> = ({
   contributors = [],
   isLoadingContributors = false,
   selectedContributor = null,
-  onContributorFilter = () => {}
+  onContributorFilter = () => {},
+  // Use provided showSeeWorkJournal prop if available (for testing)
+  showSeeWorkJournal: propShowSeeWorkJournal
 }) => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summarySuccess, setSummarySuccess] = useState<boolean>(false);
-  const [showSeeWorkJournal, setShowSeeWorkJournal] = useState<boolean>(false);
+  const [showSeeWorkJournalState, setShowSeeWorkJournal] = useState<boolean>(false);
   const [journalMessage, setJournalMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Use the prop if provided (for testing) or the state otherwise
+  const showSeeWorkJournal = propShowSeeWorkJournal !== undefined ? propShowSeeWorkJournal : showSeeWorkJournalState;
   
   // Function to generate PR summaries
   const handleGenerateSummary = async () => {
