@@ -224,12 +224,12 @@ const PullRequestDetail: React.FC<PullRequestDetailProps> = ({
         type: 'success'
       });
       
-      // Make request to auth/decrypt-credentials endpoint
-      const decryptResponse = await fetch(`${process.env.REACT_APP_AUTH_API_URL}/decrypt-credentials`, {
+      // Make request to auth/decrypt-credentials endpoint using fetchWithTokenRefresh
+      const decryptResponse = await fetchWithTokenRefresh(`${process.env.REACT_APP_AUTH_API_URL}/decrypt-credentials`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
         body: JSON.stringify({ encryptedEmail: email, encryptedPassword: password })
       });

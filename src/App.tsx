@@ -9,8 +9,12 @@ import {
   fetchGitHubRepoPulls, 
   fetchPullRequestDetail, 
   fetchRepoContributors,
+  fetchUserPRSummaries,
   PullRequestDetail as PullRequestDetailType,
-  Contributor 
+  Contributor,
+  PRSummariesResponse,
+  getEncryptedCredentials,
+  fetchWithTokenRefresh
 } from './services/authService';
 import PullRequestsList, { PullRequest } from './components/PullRequests/PullRequestsList';
 import PullRequestDetail from './components/PullRequests/PullRequestDetail';
@@ -52,6 +56,13 @@ function App() {
   const [hasMoreRepos, setHasMoreRepos] = useState<boolean>(true);
   const [repoContributors, setRepoContributors] = useState<Contributor[] | null>(null);
   const [isLoadingRepoContributors, setIsLoadingRepoContributors] = useState<boolean>(false);
+  const [prSummaries, setPRSummaries] = useState<PRSummariesResponse | null>(null);
+  const [isLoadingPRSummaries, setIsLoadingPRSummaries] = useState<boolean>(false);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [summarySuccess, setSummarySuccess] = useState<boolean>(false);
+  const [showSeeWorkJournal, setShowSeeWorkJournal] = useState<boolean>(false);
+  const [journalMessage, setJournalMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   
   // Navigation and view state
   const [currentView, setCurrentView] = useState<'repos' | 'pulls' | 'pullDetail' | 'repoContributors'>('repos');
@@ -131,6 +142,7 @@ function App() {
     setPullDetailError(null);
     setRepoContributors(null);
     setContributors([]);
+    setPRSummaries(null);
     setCurrentView('repos');
     
     // Clear PR summaries from sessionStorage
@@ -161,6 +173,7 @@ function App() {
     // Reset states when token changes
     setCurrentPage(1);
     setHasMoreRepos(true);
+    setPRSummaries(null);
     
     // Clear user data when token is emptied
     if (!newToken) {
@@ -176,17 +189,33 @@ function App() {
     setUserError(null);
     setIsLoadingRepos(true);
     setReposError(null);
+    setIsLoadingPRSummaries(true);
     
     // Fetch user data
     fetchGitHubUser(newToken)
       .then(userData => {
         setGithubUser(userData);
         setUserError(null);
+        
+        // After getting user data, fetch PR summaries
+        return fetchUserPRSummaries(newToken)
+          .then(summariesData => {
+            setPRSummaries(summariesData);
+            console.log('PR Summaries:', summariesData);
+          })
+          .catch(error => {
+            console.error('Error fetching PR summaries:', error);
+            setPRSummaries(null);
+          })
+          .finally(() => {
+            setIsLoadingPRSummaries(false);
+          });
       })
       .catch(error => {
         setGithubUser(null);
         setUserError('Failed to fetch GitHub user data');
         console.error('Error fetching GitHub user:', error);
+        setIsLoadingPRSummaries(false);
       })
       .finally(() => {
         setIsLoadingUser(false);
@@ -531,6 +560,130 @@ function App() {
     setIsTokenVisible(!isTokenVisible);
   };
   
+  const handleAddSummariesToWorkJournal = async () => {
+    try {
+      setIsGeneratingSummary(true);
+      setSummaryError(null);
+      setSummarySuccess(false);
+      setJournalMessage(null);
+      
+      // Get encrypted credentials from sessionStorage
+      const encryptedCredsStr = getEncryptedCredentials();
+      let encryptedCreds = {};
+      
+      try {
+        if (encryptedCredsStr) {
+          encryptedCreds = JSON.parse(encryptedCredsStr);
+        }
+      } catch (error) {
+        console.error('Error parsing encrypted credentials:', error);
+      }
+      
+      // Make POST request to user/pr-summaries with github token
+      const GITHUB_API_URL = process.env.REACT_APP_GITHUB_API_URL;
+      const response = await fetchWithTokenRefresh(`${GITHUB_API_URL}/user/pr-summaries`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-GitHub-Token': githubToken, // Include GitHub token in the request
+        },
+        body: JSON.stringify(encryptedCreds),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to add summaries to work journal');
+      }
+      
+      const result = await response.json();
+      console.log('PR summaries added to work journal:', result);
+      
+      // Show success message and enable See Work Journal button
+      setSummarySuccess(true);
+      setShowSeeWorkJournal(true);
+      
+      // Set a timeout to hide the success message after 3 seconds
+      setTimeout(() => {
+        setSummarySuccess(false);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error adding PR summaries to work journal:', error);
+      setSummaryError(error instanceof Error ? error.message : 'Failed to add summaries to work journal');
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  };
+  
+  // Handle opening work journal
+  const handleSeeWorkJournal = async () => {
+    // Visual indication that the button was clicked
+    setJournalMessage({
+      text: 'Opening work journal...',
+      type: 'success'
+    });
+    
+    try {
+      // Get the credentials from session storage
+      const credentials = getEncryptedCredentials();
+      if (!credentials) {
+        throw new Error('No credentials found');
+      }
+      
+      const parsedCredentials = typeof credentials === 'string' ? 
+        JSON.parse(credentials) : credentials;
+      
+      // Get email and password from credentials
+      const { email, password } = parsedCredentials;
+      
+      if (!email || !password) {
+        throw new Error('Credentials incomplete');
+      }
+      
+      // Set temporary message
+      setJournalMessage({
+        text: 'Opening work journal...',
+        type: 'success'
+      });
+      
+      // Make request to auth/decrypt-credentials endpoint using fetchWithTokenRefresh
+      const decryptResponse = await fetchWithTokenRefresh(`${process.env.REACT_APP_AUTH_API_URL}/decrypt-credentials`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ encryptedEmail: email, encryptedPassword: password })
+      });
+      
+      if (!decryptResponse.ok) {
+        throw new Error('Failed to authenticate with work journal');
+      }
+      
+      const decryptData = await decryptResponse.json();
+      
+      // Open the work journal in a new tab
+      const otherWindow = window.open(process.env.REACT_APP_WORK_JOURNAL_URL, 'workJournalTab');
+      
+      // Wait for the page to load, then send the credentials
+      setTimeout(() => {
+        if (otherWindow) {
+          otherWindow.postMessage({ 
+            email: decryptData.email, 
+            password: decryptData.password
+          }, process.env.REACT_APP_WORK_JOURNAL_URL);
+        }
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error opening work journal:', error);
+      setJournalMessage({
+        text: error instanceof Error ? error.message : 'Failed to open work journal. Please try again.',
+        type: 'error'
+      });
+    }
+  };
   
   // Helper function to get the appropriate title for the navbar
   const getNavbarTitle = (): string => {
@@ -589,6 +742,8 @@ function App() {
               error={pullsError}
               onBack={() => {}} // We're using the Navbar back button now
               repoName={selectedRepo.name}
+              ownerName={selectedRepo.owner}
+              githubToken={githubToken}
               onPullRequestClick={handlePullRequestClick}
               onLoadMore={loadMorePullRequests}
               hasMorePulls={hasMorePulls}
@@ -667,6 +822,64 @@ function App() {
           {reposError && (
             <div className="error-message">
               {reposError}
+            </div>
+          )}
+          
+          {isLoadingPRSummaries && (
+            <div className="loading-indicator">
+              Checking for your PR summaries...
+            </div>
+          )}
+          
+          {githubUser && prSummaries && prSummaries.found && (
+            <div className="pr-summaries-container">
+              {!showSeeWorkJournal && (
+                <>
+                  <p className="pr-summaries-message">
+                    {prSummaries.summaries} contributions found in your code history!
+                  </p>
+                  <button 
+                    className="add-summaries-button"
+                    onClick={handleAddSummariesToWorkJournal}
+                    disabled={isGeneratingSummary}
+                  >
+                    {isGeneratingSummary ? 'Adding to Work Journal...' : 'Add your Summaries to Work Journal'}
+                  </button>
+                </>
+              )}
+              
+              {/* Show error message if there was a problem */}
+              {summaryError && (
+                <p className="summary-error">{summaryError}</p>
+              )}
+              
+              {/* Show success message when summaries are generated */}
+              {summarySuccess && (
+                <p className="summary-success">PR summaries added to your work journal!</p>
+              )}
+
+              {/* Journal message */}
+              {journalMessage && (
+                <div className={`journal-message ${journalMessage.type}`}>
+                  {journalMessage.text}
+                </div>
+              )}
+
+              {/* Show 'See my work journal' button if summaries were generated successfully */}
+              {showSeeWorkJournal && (
+                <>
+                  <button 
+                    className="see-journal-button" 
+                    onClick={handleSeeWorkJournal}
+                  >
+                    <span className="journal-icon">📖</span>
+                    See my work journal
+                  </button>
+                  <div className="journal-helper-text">
+                    <small>You can also visit <a href={process.env.REACT_APP_WORK_JOURNAL_URL} target="_blank" rel="noopener noreferrer">{process.env.REACT_APP_WORK_JOURNAL_URL?.replace(/(^\w+:|^)\/\//, '')}</a> directly and log in with the same credentials you used for this application.</small>
+                  </div>
+                </>
+              )}
             </div>
           )}
           

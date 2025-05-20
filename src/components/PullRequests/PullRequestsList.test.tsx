@@ -72,6 +72,8 @@ describe('PullRequestsList Component', () => {
     error: null,
     onBack: jest.fn(),
     repoName: 'test-repo',
+    ownerName: 'test-owner',
+    githubToken: 'test-github-token',
     onPullRequestClick: jest.fn(),
     onLoadMore: jest.fn(),
     hasMorePulls: false,
@@ -272,5 +274,66 @@ describe('PullRequestsList Component', () => {
     fireEvent.click(firstPR!);
     
     expect(baseProps.onPullRequestClick).toHaveBeenCalledWith(101);
+  });
+  
+  // Test Generate Summary functionality
+  it('shows generate summary button', () => {
+    render(<PullRequestsList {...baseProps} />);
+    
+    expect(screen.getByRole('button', { name: 'Generate PR Summaries & add to Work Journal' })).toBeInTheDocument();
+    expect(screen.getByText('We will create summary for all the PRs and add your summaries to your work journal.')).toBeInTheDocument();
+  });
+  
+  it('shows see work journal button after summary generation success', async () => {
+    // Set environment variable
+    process.env.REACT_APP_WORK_JOURNAL_URL = 'https://journal.example.com';
+    
+    // Render with showSeeWorkJournal set to true
+    render(<PullRequestsList {...baseProps} showSeeWorkJournal={true} />);
+    
+    // Check if "See my work journal" button appears using a regex pattern
+    // This is more flexible for finding the text that might be mixed with other elements
+    const journalButton = screen.getByText(/see my work journal/i);
+    expect(journalButton).toBeInTheDocument();
+    
+    // Check if the helper text is displayed
+    expect(screen.getByText(/you can also visit/i)).toBeInTheDocument();
+    expect(screen.getByText(/journal\.example\.com/i)).toBeInTheDocument();
+  });
+  
+  it('displays a message when journal button is clicked', async () => {
+    // Mock window.open
+    const mockOpen = jest.fn();
+    window.open = mockOpen;
+    
+    // Setup environment variable
+    process.env.REACT_APP_WORK_JOURNAL_URL = 'https://journal.example.com';
+    
+    // Mock getEncryptedCredentials
+    jest.spyOn(require('../../services/authService'), 'getEncryptedCredentials')
+      .mockReturnValue(JSON.stringify({
+        email: 'test@example.com',
+        password: 'password123'
+      }));
+      
+    // Mock fetchWithTokenRefresh 
+    jest.spyOn(require('../../services/authService'), 'fetchWithTokenRefresh')
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({ email: 'decrypted-email', password: 'decrypted-password' })
+      });
+    
+    // Render with showSeeWorkJournal set to true
+    render(<PullRequestsList {...baseProps} showSeeWorkJournal={true} />);
+    
+    // Find the journal button with a more flexible matcher
+    const journalButton = screen.getByText(/see my work journal/i);
+    expect(journalButton).toBeInTheDocument();
+    
+    // Click the journal button
+    fireEvent.click(journalButton);
+    
+    // Check if the "Opening work journal..." message is displayed
+    expect(screen.getByText(/opening work journal/i)).toBeInTheDocument();
   });
 });
